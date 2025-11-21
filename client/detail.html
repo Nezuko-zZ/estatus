@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Detail - estatus</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { bg: '#0f172a', card: '#1e293b', border: '#334155' },
+                        primary: { 500: '#3b82f6', 600: '#2563eb' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+    <!-- 核心修复：添加 type="text/tailwindcss" 以支持 @apply -->
+    <style type="text/tailwindcss">
+        :root { --bg-image: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop'); }
+        body {
+            background-color: #0f172a;
+            background-image: var(--bg-image);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            font-family: 'Inter', sans-serif;
+            color: #e2e8f0;
+        }
+        .bg-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.85); z-index: -1; }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
+        }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+        .chart-container { width: 100%; min-height: 300px; }
+        
+        /* --- 新版按钮样式 (修复后) --- */
+        .filter-btn {
+            @apply px-3 py-1 text-xs font-medium rounded border border-white/10 bg-slate-800/50 text-slate-400 transition-all hover:text-white hover:bg-slate-700 hover:border-white/20 cursor-pointer;
+        }
+        .filter-btn.active {
+            @apply bg-blue-600/90 text-white border-blue-500/50 shadow-sm;
+        }
+
+        /* 下拉菜单 */
+        .dropdown-wrapper { @apply relative; }
+        .dropdown-menu {
+            @apply absolute right-0 top-full mt-2 w-24 bg-slate-800 border border-white/10 rounded-lg shadow-xl z-50 hidden flex-col overflow-hidden py-1;
+        }
+        .dropdown-menu.show { @apply flex; }
+        .dropdown-item {
+            @apply px-3 py-2 text-xs text-slate-300 hover:bg-white/10 hover:text-white text-left transition-colors w-full;
+        }
+
+        /* --- Ping 卡片样式 (修复后) --- */
+        .ping-card-container {
+            @apply flex flex-wrap gap-3 mb-4;
+        }
+        .ping-card {
+            @apply relative flex flex-col justify-between p-3 rounded-lg border border-white/5 bg-slate-800/40 min-w-[160px] h-[72px] transition-all cursor-pointer select-none hover:bg-slate-800/60 hover:border-white/10;
+        }
+        
+        /* 隐藏状态：变灰 */
+        .ping-card.hidden-target {
+            @apply opacity-50 grayscale bg-transparent border-dashed border-slate-700;
+        }
+        
+        .ping-card-header { @apply flex justify-between items-start; }
+        .ping-card-title { @apply text-sm font-medium text-slate-200 flex items-center gap-2; }
+        .ping-card-dot { @apply w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]; }
+        .ping-card-eye { @apply text-slate-500 text-xs transition-colors hover:text-white; }
+        
+        .ping-card-footer { @apply flex justify-between items-end text-xs; }
+        .ping-card-ms { @apply font-mono font-bold text-lg leading-none; }
+        .ping-card-loss { @apply text-slate-500 scale-90 origin-right; }
+
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <div class="bg-overlay"></div>
+
+    <!-- 导航栏 -->
+    <nav class="border-b border-white/10 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50 h-16 flex-none">
+        <div class="container mx-auto px-4 h-full flex items-center gap-4">
+            <a href="/" class="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition text-slate-300 hover:text-white">
+                <i class="ti ti-arrow-left"></i>
+            </a>
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">E</div>
+                <span class="text-lg font-bold text-white">服务器详情</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容 -->
+    <main class="flex-grow container mx-auto px-4 py-6 space-y-6">
+        
+        <!-- 1. 头部信息 -->
+        <div class="glass-card rounded-xl p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+                <i class="ti ti-server text-9xl"></i>
+            </div>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+                <div class="flex items-center gap-5">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center shadow-lg">
+                        <img id="os-icon" src="" class="w-8 h-8 drop-shadow-md" onerror="this.src='https://cdn.simpleicons.org/linux'">
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                            <span id="server-name">Loading...</span>
+                            <span class="px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Online
+                            </span>
+                        </h1>
+                        <div class="flex flex-wrap gap-2 mt-2" id="server-tags"></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full md:w-auto text-sm">
+                    <div class="bg-white/5 rounded-lg p-3 border border-white/5">
+                        <div class="text-slate-400 text-xs mb-1">在线时长</div>
+                        <div class="text-white font-mono" id="uptime-display">--</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg p-3 border border-white/5">
+                        <div class="text-slate-400 text-xs mb-1">位置</div>
+                        <div class="text-white" id="loc-display">--</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg p-3 border border-white/5">
+                        <div class="text-slate-400 text-xs mb-1">类型</div>
+                        <div class="text-white" id="type-display">--</div>
+                    </div>
+                    <div class="bg-white/5 rounded-lg p-3 border border-white/5">
+                        <div class="text-slate-400 text-xs mb-1">价格</div>
+                        <div class="text-amber-400 font-mono" id="price-display">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 仪表盘 (Gauges) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- CPU -->
+            <div class="glass-card rounded-xl p-4 relative group hover:border-blue-500/30 transition-colors">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2 text-blue-400">
+                        <i class="ti ti-cpu text-xl"></i>
+                        <span class="font-bold text-sm">处理器</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 relative flex-shrink-0" id="gauge-cpu"></div>
+                    <div>
+                        <div class="text-2xl font-bold text-white"><span id="val-cpu">0</span>%</div>
+                        <div class="text-xs text-slate-400 mt-1">负载状况</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RAM -->
+            <div class="glass-card rounded-xl p-4 relative group hover:border-purple-500/30 transition-colors">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2 text-purple-400">
+                        <i class="ti ti-device-sd-card text-xl"></i>
+                        <span class="font-bold text-sm">内存</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 relative flex-shrink-0" id="gauge-ram"></div>
+                    <div>
+                        <div class="text-2xl font-bold text-white"><span id="val-ram">0</span>%</div>
+                        <div class="text-xs text-slate-400 mt-1">物理内存</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disk -->
+            <div class="glass-card rounded-xl p-4 relative group hover:border-amber-500/30 transition-colors">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2 text-amber-400">
+                        <i class="ti ti-database text-xl"></i>
+                        <span class="font-bold text-sm">硬盘</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 relative flex-shrink-0" id="gauge-disk"></div>
+                    <div>
+                        <div class="text-2xl font-bold text-white"><span id="val-disk">0</span>%</div>
+                        <div class="text-xs text-slate-400 mt-1">存储空间</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Net Realtime -->
+            <div class="glass-card rounded-xl p-4 relative group hover:border-emerald-500/30 transition-colors flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2 text-emerald-400">
+                        <i class="ti ti-activity-heartbeat text-xl"></i>
+                        <span class="font-bold text-sm">实时速率</span>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-end">
+                        <span class="text-xs text-slate-400"><i class="ti ti-arrow-down"></i> 下载</span>
+                        <span class="text-lg font-bold text-white font-mono"><span id="val-net-in">0.0</span> <span class="text-xs text-slate-500">Mbps</span></span>
+                    </div>
+                    <div class="w-full bg-slate-700/50 rounded-full h-1"><div id="bar-net-in" class="bg-emerald-500 h-1 rounded-full transition-all duration-300" style="width: 0%"></div></div>
+                    <div class="flex justify-between items-end mt-2">
+                        <span class="text-xs text-slate-400"><i class="ti ti-arrow-up"></i> 上传</span>
+                        <span class="text-lg font-bold text-white font-mono"><span id="val-net-out">0.0</span> <span class="text-xs text-slate-500">Mbps</span></span>
+                    </div>
+                    <div class="w-full bg-slate-700/50 rounded-full h-1"><div id="bar-net-out" class="bg-blue-500 h-1 rounded-full transition-all duration-300" style="width: 0%"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 详细图表 (CPU & Bandwidth) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- CPU History -->
+            <div class="glass-card rounded-xl p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-white flex items-center gap-2"><i class="ti ti-cpu text-blue-400"></i> 负载详情</h3>
+                    <!-- 优化后的独立按钮组 -->
+                    <div class="dropdown-wrapper flex gap-2 items-center" id="ctrl-cpu">
+                        <button onclick="setChartRange('cpu', 'rt', this)" class="filter-btn active">实时</button>
+                        <button onclick="setChartRange('cpu', '1h', this)" class="filter-btn">1h</button>
+                        <button onclick="setChartRange('cpu', '24h', this)" class="filter-btn">24h</button>
+                        <div class="relative">
+                            <button onclick="toggleDropdown('dd-cpu')" class="filter-btn flex items-center gap-1 pr-2">更多 <i class="ti ti-caret-down-filled text-[10px]"></i></button>
+                            <div id="dd-cpu" class="dropdown-menu">
+                                <button onclick="setChartRange('cpu', '7d', this)" class="dropdown-item">7天</button>
+                                <button onclick="setChartRange('cpu', '30d', this)" class="dropdown-item">30天</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="chart-cpu" class="chart-container"></div>
+            </div>
+
+            <!-- Network History -->
+            <div class="glass-card rounded-xl p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-white flex items-center gap-2"><i class="ti ti-network text-emerald-400"></i> 带宽监控</h3>
+                    <div class="dropdown-wrapper flex gap-2 items-center" id="ctrl-net">
+                        <button onclick="setChartRange('net', 'rt', this)" class="filter-btn active">实时</button>
+                        <button onclick="setChartRange('net', '1h', this)" class="filter-btn">1h</button>
+                        <button onclick="setChartRange('net', '24h', this)" class="filter-btn">24h</button>
+                        <div class="relative">
+                            <button onclick="toggleDropdown('dd-net')" class="filter-btn flex items-center gap-1 pr-2">更多 <i class="ti ti-caret-down-filled text-[10px]"></i></button>
+                            <div id="dd-net" class="dropdown-menu">
+                                <button onclick="setChartRange('net', '7d', this)" class="dropdown-item">7天</button>
+                                <button onclick="setChartRange('net', '30d', this)" class="dropdown-item">30天</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="chart-net" class="chart-container"></div>
+            </div>
+        </div>
+
+        <!-- 4. 网络质量监控 (Ping) - 重构版 -->
+        <div class="glass-card rounded-xl p-5">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div class="flex items-center gap-2">
+                    <i class="ti ti-broadcast text-purple-400 text-xl"></i>
+                    <h3 class="font-bold text-white text-lg">网络质量监控</h3>
+                </div>
+
+                <!-- 顶部控制栏：时间范围 + 刷新 -->
+                <div class="flex items-center gap-2" id="ctrl-ping">
+                    <button onclick="setChartRange('ping', 'rt', this)" class="filter-btn active">实时</button>
+                    <button onclick="setChartRange('ping', '4h', this)" class="filter-btn">4小时</button>
+                    <button onclick="setChartRange('ping', '24h', this)" class="filter-btn">24小时</button>
+                    <button onclick="setChartRange('ping', '7d', this)" class="filter-btn">7天</button>
+                    <button onclick="location.reload()" class="text-slate-400 hover:text-white transition p-1 ml-2" title="刷新"><i class="ti ti-refresh"></i></button>
+                </div>
+            </div>
+
+            <!-- 动态卡片容器 -->
+            <div id="ping-cards" class="ping-card-container">
+                <!-- JS 动态插入卡片 -->
+                <div class="text-slate-500 text-sm p-2">等待数据...</div>
+            </div>
+
+            <!-- 图表 -->
+            <div id="chart-ping" class="chart-container" style="height: 320px;"></div>
+        </div>
+
+        <!-- 5. 流量统计 -->
+        <div class="glass-card rounded-xl p-5">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-white flex items-center gap-2"><i class="ti ti-chart-bar text-amber-400"></i> 流量统计</h3>
+                <div class="flex gap-2 items-center" id="ctrl-traffic">
+                    <button onclick="setChartRange('traffic', 'month', this)" class="filter-btn active">本月</button>
+                    <button onclick="setChartRange('traffic', 'year', this)" class="filter-btn">今年</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-slate-800/40 rounded-lg p-4 border border-white/5">
+                    <div class="text-slate-400 text-xs mb-1">已用流量</div>
+                    <div class="text-xl font-bold text-white font-mono" id="traffic-used-val">0 GB</div>
+                </div>
+                <div class="bg-slate-800/40 rounded-lg p-4 border border-white/5">
+                    <div class="text-slate-400 text-xs mb-1">流量限额</div>
+                    <div class="text-xl font-bold text-slate-300 font-mono" id="traffic-limit-val">--</div>
+                </div>
+            </div>
+            <div id="chart-traffic" class="chart-container" style="height: 180px;"></div>
+        </div>
+    </main>
+
+    <footer class="mt-auto py-6 border-t border-slate-800/50 bg-slate-900/30 backdrop-blur-sm">
+        <div class="container mx-auto px-4 text-center text-sm text-slate-500">estatus Pro &copy; 2025</div>
+    </footer>
+
+    <script>
+        const serverId = window.location.pathname.split('/').pop();
+        let charts = { cpu: null, net: null, ping: null, traffic: null };
+        let gauges = { cpu: null, ram: null, disk: null };
+        
+        // 颜色配置
+        const pingColors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4'];
+        let targetColorMap = {};
+        let targetVisibility = {};
+        let targetPingData = {}; // 存储最新的 Ping 数据
+
+        const buffers = {
+            cpu: { time: [], val: [] },
+            net: { time: [], in: [], out: [] },
+            ping: { time: [], targets: {} } 
+        };
+        const MAX_BUFFER = 60;
+
+        const formatTime = (ts) => new Date(ts).toLocaleTimeString('zh-CN', { hour12: false });
+        const formatDateTime = (ts) => {
+            const d = new Date(ts);
+            return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes()}`;
+        };
+
+        // 1. 初始化图表
+        function initCharts() {
+            const commonGrid = { left: '10px', right: '20px', top: '30px', bottom: '0px', containLabel: true };
+            const commonTooltip = { trigger: 'axis', backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: '#334155', textStyle: { color: '#fff' } };
+            const commonXAxis = { type: 'category', boundaryGap: false, axisLine: { lineStyle: { color: '#475569' } }, axisLabel: { color: '#94a3b8' } };
+            const commonYAxis = { type: 'value', splitLine: { lineStyle: { color: '#334155', type: 'dashed' } }, axisLabel: { color: '#94a3b8' } };
+
+            charts.cpu = echarts.init(document.getElementById('chart-cpu'));
+            charts.cpu.setOption({
+                grid: commonGrid, tooltip: commonTooltip, xAxis: commonXAxis, yAxis: { ...commonYAxis, max: 100 },
+                series: [{ name: 'CPU', type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.2 }, lineStyle: { width: 2, color: '#3b82f6' }, itemStyle: { color: '#3b82f6' }, data: [] }]
+            });
+
+            charts.net = echarts.init(document.getElementById('chart-net'));
+            charts.net.setOption({
+                grid: commonGrid, tooltip: commonTooltip, xAxis: commonXAxis, yAxis: commonYAxis,
+                legend: { textStyle: { color: '#cbd5e1' }, top: 0, right: 10 },
+                series: [
+                    { name: '入网', type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.1 }, lineStyle: { width: 2, color: '#10b981' }, itemStyle: { color: '#10b981' }, data: [] },
+                    { name: '出网', type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.1 }, lineStyle: { width: 2, color: '#3b82f6' }, itemStyle: { color: '#3b82f6' }, data: [] }
+                ]
+            });
+
+            charts.ping = echarts.init(document.getElementById('chart-ping'));
+            charts.ping.setOption({
+                grid: commonGrid, tooltip: commonTooltip, xAxis: commonXAxis, yAxis: commonYAxis,
+                legend: { show: false }, 
+                series: []
+            });
+
+            charts.traffic = echarts.init(document.getElementById('chart-traffic'));
+            charts.traffic.setOption({
+                grid: commonGrid, tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15, 23, 42, 0.9)', textStyle: { color: '#fff' } },
+                xAxis: { type: 'category', data: ['流量'], axisLabel: { color: '#94a3b8' } },
+                yAxis: commonYAxis,
+                series: [{ name: '流量 (GB)', type: 'bar', itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] }, data: [] }]
+            });
+
+            const createGauge = (dom, color) => echarts.init(dom).setOption({
+                series: [{
+                    type: 'gauge', startAngle: 90, endAngle: -270, pointer: { show: false },
+                    progress: { show: true, overlap: false, roundCap: true, clip: false, itemStyle: { color: color } },
+                    axisLine: { lineStyle: { width: 8, color: [[1, 'rgba(255,255,255,0.1)']] } },
+                    splitLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false }, detail: { show: false },
+                    data: [{ value: 0 }]
+                }]
+            });
+            gauges.cpu = createGauge(document.getElementById('gauge-cpu'), '#3b82f6');
+            gauges.ram = createGauge(document.getElementById('gauge-ram'), '#a855f7');
+            gauges.disk = createGauge(document.getElementById('gauge-disk'), '#f59e0b');
+
+            window.addEventListener('resize', () => Object.values({...charts, ...gauges}).forEach(c => c?.resize()));
+        }
+
+        // 2. UI 交互
+        window.toggleDropdown = (id) => {
+            document.querySelectorAll('.dropdown-menu').forEach(el => {
+                if(el.id !== id) el.classList.remove('show');
+            });
+            const dd = document.getElementById(id);
+            if(dd) dd.classList.toggle('show');
+        };
+
+        window.onclick = (e) => {
+            if (!e.target.closest('.dropdown-wrapper')) {
+                document.querySelectorAll('.dropdown-menu').forEach(el => el.classList.remove('show'));
+            }
+        };
+
+        window.setChartRange = async (type, range, btn) => {
+            // 更新按钮状态
+            if (btn.classList.contains('dropdown-item')) {
+                btn.closest('.dropdown-menu').classList.remove('show');
+                // 将"更多"按钮设为激活
+                const wrapper = btn.closest('.dropdown-wrapper');
+                wrapper.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                wrapper.querySelector('.relative > button').classList.add('active');
+            } else {
+                const container = btn.closest('.dropdown-wrapper') || btn.closest('.flex'); // 适配 Ping 的容器
+                container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                container.querySelectorAll('.relative > button').forEach(b => b.classList.remove('active')); // 清除 dropdown 按钮激活
+                btn.classList.add('active');
+            }
+
+            if (range === 'rt') return; 
+
+            const apiRange = ['1h','4h','24h'].includes(range) ? '24h' : '30d';
+            try {
+                if(charts[type]) charts[type].showLoading({ text: '加载中...', color: '#3b82f6', textColor: '#fff', maskColor: 'rgba(0,0,0,0.2)' });
+                
+                const res = await fetch(`/api/server/${serverId}/history?range=${apiRange}`);
+                const data = await res.json();
+                
+                if(charts[type]) charts[type].hideLoading();
+
+                const now = Date.now() / 1000;
+                const limitMap = { '1h': 3600, '4h': 14400, '24h': 86400, '7d': 604800, '30d': 2592000 };
+                const limit = limitMap[range] || Infinity;
+
+                const filtered = data.filter(d => {
+                    const ts = d.created_at || (new Date(d.time_slot).getTime()/1000);
+                    return (now - ts) <= limit;
+                });
+
+                const xData = filtered.map(d => {
+                    const ts = (d.created_at || new Date(d.time_slot).getTime()/1000) * 1000;
+                    return ['1h','4h','24h'].includes(range) ? formatTime(ts) : formatDateTime(ts);
+                });
+
+                if (type === 'cpu') {
+                    charts.cpu.setOption({ xAxis: { data: xData }, series: [{ data: filtered.map(d => d.cpu) }] });
+                } else if (type === 'net') {
+                    charts.net.setOption({ xAxis: { data: xData }, series: [{ data: filtered.map(d => d.net_in) }, { data: filtered.map(d => d.net_out) }] });
+                }
+                // Ping 历史数据处理逻辑略（如需后端支持需另写）
+            } catch(e) { 
+                console.error(e); 
+                if(charts[type]) charts[type].hideLoading(); 
+            }
+        };
+
+        window.togglePingTarget = (targetName) => {
+            targetVisibility[targetName] = !targetVisibility[targetName];
+            renderPingCards(); // 重新渲染卡片状态
+            
+            if(charts.ping) {
+                charts.ping.dispatchAction({ type: 'legendToggleSelect', name: targetName });
+            }
+        };
+
+        // 新增：渲染 Ping 卡片
+        function renderPingCards() {
+            const container = document.getElementById('ping-cards');
+            if (!container) return;
+
+            // 使用 targetColorMap 中的 key (targetName) 来渲染
+            const targets = Object.keys(targetColorMap);
+            
+            if (targets.length === 0) {
+                container.innerHTML = '<div class="text-slate-500 text-sm p-2">等待数据...</div>';
+                return;
+            }
+
+            container.innerHTML = targets.map(target => {
+                const color = targetColorMap[target];
+                const isVisible = targetVisibility[target];
+                const data = targetPingData[target] || { ms: '--', loss: 0 };
+                
+                // 延迟颜色逻辑
+                let msColorClass = 'text-slate-400';
+                if (data.ms !== '--') {
+                    const ms = parseInt(data.ms);
+                    msColorClass = ms < 50 ? 'text-emerald-400' : ms < 150 ? 'text-yellow-400' : 'text-red-400';
+                }
+
+                return `
+                <div class="ping-card ${!isVisible ? 'hidden-target' : ''}" onclick="togglePingTarget('${target}')">
+                    <div class="ping-card-header">
+                        <div class="ping-card-title">
+                            <div class="ping-card-dot" style="background-color: ${isVisible ? color : '#64748b'}"></div>
+                            <span class="${!isVisible ? 'text-slate-500' : ''}">${target}</span>
+                        </div>
+                        <div class="ping-card-eye">
+                            <i class="ti ti-${isVisible ? 'eye' : 'eye-off'}"></i>
+                        </div>
+                    </div>
+                    <div class="ping-card-footer">
+                        <div class="ping-card-ms ${isVisible ? msColorClass : 'text-slate-600'}">${data.ms}<span class="text-[10px] font-normal ml-0.5 text-slate-500">ms</span></div>
+                        <div class="ping-card-loss">丢包 0%</div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        // 3. 实时更新
+        function updateView(data) {
+            if (!data) return;
+
+            // 更新仪表盘
+            if (gauges.cpu) {
+                gauges.cpu.setOption({ series: [{ data: [{ value: data.cpu }] }] });
+                document.getElementById('val-cpu').innerText = Math.round(data.cpu);
+            }
+            if (gauges.ram) {
+                gauges.ram.setOption({ series: [{ data: [{ value: data.ram }] }] });
+                document.getElementById('val-ram').innerText = Math.round(data.ram);
+            }
+            if (gauges.disk) {
+                gauges.disk.setOption({ series: [{ data: [{ value: data.disk }] }] });
+                document.getElementById('val-disk').innerText = Math.round(data.disk);
+            }
+
+            document.getElementById('val-net-in').innerText = (data.netIn||0).toFixed(1);
+            document.getElementById('val-net-out').innerText = (data.netOut||0).toFixed(1);
+            document.getElementById('bar-net-in').style.width = Math.min(100, (data.netIn/100)*100) + '%';
+            document.getElementById('bar-net-out').style.width = Math.min(100, (data.netOut/100)*100) + '%';
+            document.getElementById('traffic-used-val').innerText = (data.trafficUsed||0).toFixed(2) + ' GB';
+
+            // 文本信息
+            document.getElementById('server-name').innerText = data.name;
+            document.getElementById('uptime-display').innerText = data.uptime;
+            document.getElementById('loc-display').innerText = data.loc;
+            document.getElementById('type-display').innerText = data.type;
+            document.getElementById('price-display').innerText = data.price;
+            document.getElementById('os-icon').src = `https://cdn.simpleicons.org/${getOsSlug(data.os)}`;
+            
+            // Tags
+            try {
+                const tags = typeof data.tags === 'string' ? JSON.parse(data.tags) : data.tags;
+                document.getElementById('server-tags').innerHTML = tags.map(t => 
+                    `<span class="px-2 py-0.5 rounded text-xs border border-white/10 bg-white/5 text-slate-300">${t.text}</span>`
+                ).join('');
+            } catch(e){}
+
+            const nowStr = new Date().toLocaleTimeString();
+
+            // 更新实时图表 (Buffer)
+            buffers.cpu.time.push(nowStr); buffers.cpu.val.push(data.cpu);
+            if(buffers.cpu.time.length > MAX_BUFFER) { buffers.cpu.time.shift(); buffers.cpu.val.shift(); }
+            
+            const cpuBtn = document.querySelector('#ctrl-cpu .filter-btn.active');
+            if (charts.cpu && cpuBtn && cpuBtn.innerText === '实时') {
+                charts.cpu.setOption({ xAxis: { data: buffers.cpu.time }, series: [{ data: buffers.cpu.val }] });
+            }
+
+            buffers.net.time.push(nowStr); buffers.net.in.push(data.netIn); buffers.net.out.push(data.netOut);
+            if(buffers.net.time.length > MAX_BUFFER) { buffers.net.time.shift(); buffers.net.in.shift(); buffers.net.out.shift(); }
+            
+            const netBtn = document.querySelector('#ctrl-net .filter-btn.active');
+            if (charts.net && netBtn && netBtn.innerText === '实时') {
+                charts.net.setOption({ xAxis: { data: buffers.net.time }, series: [{ data: buffers.net.in }, { data: buffers.net.out }] });
+            }
+
+            // Ping 数据逻辑
+            buffers.ping.time.push(nowStr);
+            if(buffers.ping.time.length > MAX_BUFFER) buffers.ping.time.shift();
+
+            let pings = [];
+            try { pings = typeof data.pingData === 'string' ? JSON.parse(data.pingData) : data.pingData; } catch(e){}
+            
+            if (pings && pings.length > 0) {
+                let needsRenderCards = false;
+
+                pings.forEach((p, idx) => {
+                    // 如果是新出现的目标，初始化颜色和可见性
+                    if (!targetColorMap[p.target]) {
+                        targetColorMap[p.target] = pingColors[idx % pingColors.length];
+                        targetVisibility[p.target] = true;
+                        needsRenderCards = true;
+                    }
+                    // 更新最新数据缓存
+                    targetPingData[p.target] = { ms: p.ms, loss: 0 };
+
+                    // Buffer 更新
+                    if(!buffers.ping.targets[p.target]) buffers.ping.targets[p.target] = new Array(buffers.ping.time.length - 1).fill(null);
+                    buffers.ping.targets[p.target].push(p.ms);
+                    if(buffers.ping.targets[p.target].length > MAX_BUFFER) buffers.ping.targets[p.target].shift();
+                });
+
+                // 渲染卡片 (如果只有数据更新，也建议刷新以更新 ms 显示)
+                renderPingCards();
+
+                const series = Object.keys(buffers.ping.targets).map(target => ({
+                    name: target,
+                    type: 'line',
+                    showSymbol: false,
+                    smooth: true,
+                    lineStyle: { width: 2, color: targetColorMap[target] },
+                    itemStyle: { color: targetColorMap[target] },
+                    data: buffers.ping.targets[target]
+                }));
+
+                const pingBtn = document.querySelector('#ctrl-ping .filter-btn.active');
+                if (charts.ping && pingBtn && pingBtn.innerText === '实时') {
+                    charts.ping.setOption({
+                        xAxis: { data: buffers.ping.time },
+                        series: series
+                    });
+                }
+            }
+
+            if (charts.traffic) {
+                charts.traffic.setOption({
+                    xAxis: { data: ['当月'] },
+                    series: [{ data: [data.trafficUsed||0] }]
+                });
+            }
+        }
+
+        function getOsSlug(os) {
+            const map = { 'debian':'debian', 'ubuntu':'ubuntu', 'centos':'centos', 'windows':'windows11', 'oracle':'oracle', 'arch':'archlinux' };
+            return map[os?.toLowerCase()] || 'linux';
+        }
+
+        function connect() {
+            const ws = new WebSocket(`ws://${location.host}`);
+            ws.onmessage = e => {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'full_sync' && msg.data[serverId]) updateView(msg.data[serverId]);
+                if (msg.type === 'update_single' && msg.id === serverId) updateView(msg.data);
+            };
+            ws.onclose = () => setTimeout(connect, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            connect();
+            // 默认加载 24H 历史
+            setChartRange('cpu', '24h', document.querySelector('#ctrl-cpu button:nth-child(3)'));
+            setChartRange('net', '24h', document.querySelector('#ctrl-net button:nth-child(3)'));
+        });
+    </script>
+</body>
+</html>

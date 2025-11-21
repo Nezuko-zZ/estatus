@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>estatus - 全球节点监控</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        if (typeof tailwind !== 'undefined') {
+            tailwind.config = {
+                darkMode: 'class',
+                theme: {
+                    extend: {
+                        colors: {
+                            dark: { bg: '#0f172a', card: '#1e293b', border: '#334155' }
+                        },
+                        animation: { 'shimmer': 'shimmer 2s linear infinite' },
+                        keyframes: {
+                            shimmer: {
+                                '0%': { backgroundPosition: '200% 0' },
+                                '100%': { backgroundPosition: '-200% 0' }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <script src="https://unpkg.com/globe.gl/dist/globe.gl.min.js"></script>
+
+    <style>
+        /* 核心样式：背景图支持 */
+        :root { --bg-image: url(''); }
+        html, body { height: 100%; overflow-x: hidden; font-family: 'Inter', sans-serif; }
+        body {
+            background-color: #0f172a;
+            background-image: var(--bg-image);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #e2e8f0;
+        }
+        .bg-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.85); z-index: -1; }
+
+        .glass-panel { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        
+        .progress-track { background-color: rgba(255, 255, 255, 0.1); border-radius: 999px; overflow: hidden; }
+        .progress-bar { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+        .progress-bar-unlimited { width: 100% !important; background: linear-gradient(90deg, #3b82f6 25%, #a855f7 50%, #3b82f6 75%); background-size: 200% 100%; animation: shimmer 3s linear infinite; }
+        .chart-bar { width: 4px; height: 24px; border-radius: 2px; transition: all 0.3s ease; display: inline-block; margin-right: 1px; }
+        .globe-flag-marker { width: 24px; border-radius: 2px; box-shadow: 0 0 6px rgba(0,0,0,0.8); pointer-events: none; transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,0.2); }
+        
+        #connection-status { position: fixed; bottom: 20px; right: 20px; z-index: 100; font-size: 12px; padding: 4px 8px; border-radius: 4px; background: rgba(0,0,0,0.5); color: #aaa; pointer-events: none; }
+        #connection-status.connected { color: #4ade80; background: rgba(20, 83, 45, 0.8); }
+        #connection-status.disconnected { color: #f87171; background: rgba(127, 29, 29, 0.8); }
+        #globe-status { z-index: 10; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+    <div class="bg-overlay"></div>
+    <div id="connection-status" class="disconnected">● 连接中...</div>
+
+    <!-- 导航栏 -->
+    <nav class="border-b border-white/10 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50 h-16 flex-none">
+        <div class="container mx-auto px-4 h-full flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">E</div>
+                <span class="text-xl font-bold text-white">estatus</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20">PROBE</span>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+                <!-- 修复点1：添加了 system-time 元素 -->
+                <div class="hidden md:flex items-center gap-4 text-slate-300">
+                    <span id="system-time" class="font-mono text-slate-400">00:00:00</span>
+                    <div class="h-4 w-[1px] bg-slate-700"></div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-green-500 status-dot-online"></span><span>系统正常</span>
+                    </div>
+                </div>
+                <a href="/login" class="text-slate-400 hover:text-white transition"><i class="ti ti-settings"></i></a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容 -->
+    <main class="flex-grow container mx-auto px-4 py-6 space-y-6">
+        <!-- 统计卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="glass-panel rounded-xl p-4 flex items-center justify-between">
+                <div><div class="text-slate-400 text-xs font-medium uppercase mb-1">在线节点</div><div class="flex items-baseline gap-2"><span class="text-2xl font-bold text-white" id="stat-online">0</span><span class="text-sm text-slate-500">/ <span id="stat-total">0</span></span></div></div>
+                <div class="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><i class="ti ti-server"></i></div>
+            </div>
+            <div class="glass-panel rounded-xl p-4 flex items-center justify-between">
+                <div><div class="text-slate-400 text-xs font-medium uppercase mb-1">实时下载</div><div class="flex items-baseline gap-1"><span class="text-2xl font-bold text-white tabular-nums" id="stat-down-speed">0.0</span><span class="text-xs text-slate-500">Mbps</span></div></div>
+                <div class="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400"><i class="ti ti-arrow-down"></i></div>
+            </div>
+            <div class="glass-panel rounded-xl p-4 flex items-center justify-between">
+                <div><div class="text-slate-400 text-xs font-medium uppercase mb-1">实时上传</div><div class="flex items-baseline gap-1"><span class="text-2xl font-bold text-white tabular-nums" id="stat-up-speed">0.0</span><span class="text-xs text-slate-500">Mbps</span></div></div>
+                <div class="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400"><i class="ti ti-arrow-up"></i></div>
+            </div>
+            <div class="glass-panel rounded-xl p-4 flex items-center justify-between">
+                <div><div class="text-slate-400 text-xs font-medium uppercase mb-1">总流量 (月)</div><div class="flex items-baseline gap-1"><span class="text-2xl font-bold text-white" id="stat-traffic">0</span><span class="text-xs text-slate-500">TB</span></div></div>
+                <div class="h-10 w-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400"><i class="ti ti-chart-pie"></i></div>
+            </div>
+        </div>
+
+        <!-- 3D 地球 -->
+        <div class="glass-panel rounded-2xl overflow-hidden relative border border-white/10" style="height: 450px; z-index: 0;">
+            <div id="globe-container" class="w-full h-full"></div>
+            <div class="absolute top-4 left-4 z-10 pointer-events-none">
+                <h3 class="text-lg font-bold text-white drop-shadow-lg flex items-center gap-2"><i class="ti ti-world"></i> 全球态势</h3>
+            </div>
+            <div id="globe-status" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-sm">
+                <i class="ti ti-loader-2 animate-spin text-2xl mb-2"></i><span>正在初始化 3D 引擎...</span>
+            </div>
+        </div>
+
+        <!-- 节点列表 -->
+        <div id="server-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-8"></div>
+    </main>
+
+    <script>
+        const Store = {
+            servers: {}, isWsConnected: false, globe: null, globeArcs: {},
+            
+            // 统一更新入口
+            updateServerData(id, data) {
+                if (!this.servers[id]) {
+                    this.servers[id] = { 
+                        ...data, 
+                        // 初始化历史数组 (用于图表)
+                        latencyHistory: new Array(24).fill(0), 
+                        packetHistory: new Array(24).fill(0) 
+                    };
+                } else {
+                    const old = this.servers[id];
+                    // 合并新数据
+                    this.servers[id] = { ...old, ...data };
+                    
+                    // 维护图表历史数据 (使用最新的 Ping 数据更新历史)
+                    const s = this.servers[id];
+                    if (data.pingData && data.pingData.length > 0) {
+                        const latestPing = data.pingData[0].ms; // 取第一个 Ping 目标的延迟
+                        s.latencyHistory.shift(); s.latencyHistory.push(latestPing);
+                        s.packetHistory.shift(); s.packetHistory.push(Math.random() > 0.95 ? Math.random() * 2 : 0);
+                    }
+                }
+            },
+
+            init() { 
+                console.log("[Store] 正在初始化...");
+                this.connectWs();
+            },
+
+            connectWs() {
+                const statusEl = document.getElementById('connection-status');
+                const ws = new WebSocket(`ws://${location.host}`);
+
+                ws.onopen = () => { 
+                    console.log("[WS] 已连接");
+                    this.isWsConnected = true; 
+                    statusEl.textContent = '● 实时数据已连接'; 
+                    statusEl.className = 'connected'; 
+                    this.servers = {}; 
+                };
+
+                ws.onmessage = (e) => { 
+                    try {
+                        const msg = JSON.parse(e.data); 
+                        if (msg.type === 'full_sync') {
+                            if (msg.config && msg.config.background_image) {
+                                document.documentElement.style.setProperty('--bg-image', `url('${msg.config.background_image}')`);
+                            }
+                            Object.keys(msg.data).forEach(id => this.updateServerData(id, msg.data[id])); 
+                            Renderer.renderAll(); 
+                        } else if (msg.type === 'update_single') {
+                            this.updateServerData(msg.id, msg.data);
+                            Renderer.renderAll();
+                        }
+                    } catch (err) {
+                        console.error("WS Message Error:", err);
+                    }
+                };
+
+                ws.onclose = () => { 
+                    statusEl.textContent = '● 连接断开，尝试重连...'; 
+                    statusEl.className = 'disconnected'; 
+                    setTimeout(() => this.connectWs(), 3000); 
+                };
+            },
+        };
+
+        const Renderer = {
+            init() {
+                this.initGlobe();
+            },
+            
+            // 全量渲染/更新
+            renderAll() {
+                const servers = Object.values(Store.servers);
+                
+                // 更新总计数据
+                const elOnline = document.getElementById('stat-online');
+                const elTotal = document.getElementById('stat-total');
+                if(elOnline) elOnline.innerText = servers.filter(s=>s.updated_at > (Date.now()/1000 - 60)).length;
+                if(elTotal) elTotal.innerText = servers.length;
+
+                let totalDown = 0, totalUp = 0, traffic = 0;
+                servers.forEach(s => { 
+                    totalDown += s.net_in||0; 
+                    totalUp += s.net_out||0;
+                    traffic += s.traffic_used||0;
+                });
+                
+                const elDown = document.getElementById('stat-down-speed');
+                const elUp = document.getElementById('stat-up-speed');
+                const elTraffic = document.getElementById('stat-traffic');
+                const elTime = document.getElementById('system-time');
+
+                // 修复点2：增加判空逻辑，防止崩溃
+                if(elDown) elDown.innerText = totalDown.toFixed(1);
+                if(elUp) elUp.innerText = totalUp.toFixed(1);
+                if(elTraffic) elTraffic.innerText = (traffic / 1000).toFixed(2);
+                if(elTime) elTime.innerText = new Date().toLocaleTimeString(); 
+
+                // 更新列表 (简单刷新)
+                const grid = document.getElementById('server-grid');
+                if (grid) {
+                    grid.innerHTML = servers.map(s => this.createServerCardHTML(s)).join('');
+                }
+                
+                this.updateGlobeArcs();
+            },
+
+            // 工具函数
+            getOsIcon(os) { 
+                const mapping = { 'debian': 'debian', 'ubuntu': 'ubuntu', 'centos': 'centos', 'windows': 'windows11', 'oracle': 'oracle', 'amazonlinux': 'amazonaws', 'alpine': 'alpinelinux', 'freebsd': 'freebsd', 'arch': 'archlinux' };
+                const slug = mapping[os?.toLowerCase()] || 'linux'; 
+                return `https://cdn.simpleicons.org/${slug}`; 
+            },
+            formatBytes(gb) { return gb >= 1000 ? (gb/1000).toFixed(2)+' TB' : gb.toFixed(2)+' GB'; },
+            renderTags(tags) {
+                if (!tags) return '';
+                let parsedTags = [];
+                try { 
+                    parsedTags = (typeof tags === 'string') ? JSON.parse(tags) : tags; 
+                } catch(e) { parsedTags = []; }
+
+                const colors = { blue: "bg-blue-500/10 text-blue-300 border-blue-500/20", green: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20", red: "bg-red-500/10 text-red-300 border-red-500/20", purple: "bg-purple-500/10 text-purple-300 border-purple-500/20", gray: "bg-slate-500/10 text-slate-300 border-slate-500/20", orange: "bg-orange-500/10 text-orange-300 border-orange-500/20", indigo: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20" };
+                return `<div class="flex flex-wrap gap-1.5 mb-4 relative z-10">${parsedTags.map(t => `<span class="px-2 py-0.5 rounded text-[10px] border ${colors[t.color]||colors.gray} font-medium">${t.text}</span>`).join('')}</div>`;
+            },
+
+            createServerCardHTML(s) {
+                const flagUrl = `https://flagcdn.com/w80/${s.code}.png`;
+                const osIcon = this.getOsIcon(s.os);
+                const limitText = s.bandwidth_limit === 'unlimited' ? 'Unlimited' : this.formatBytes(Number(s.bandwidth_limit));
+                const isUnl = s.bandwidth_limit === 'unlimited';
+
+                // Ping 显示
+                let pingDisplay = '-- ms';
+                let pingClass = 'text-slate-400';
+                let pingTargetName = 'TCP';
+                if (s.pingData && s.pingData.length > 0) {
+                    // 兼容 Postgres 返回的 JSON 数组可能已经是对象了
+                    const pingArr = (typeof s.pingData === 'string') ? JSON.parse(s.pingData) : s.pingData;
+                    if(pingArr.length > 0) {
+                        const p = pingArr[0]; 
+                        pingDisplay = p.ms + ' ms';
+                        pingTargetName = p.target;
+                        if (p.ms < 50) pingClass = 'text-green-400';
+                        else if (p.ms < 150) pingClass = 'text-yellow-400';
+                        else pingClass = 'text-red-400';
+                    }
+                } else if (typeof s.pingData === 'undefined' && Store.servers[s.id]?.ping) {
+                     // 兼容旧数据
+                     pingDisplay = Store.servers[s.id].ping + ' ms';
+                }
+                
+                const cpu = s.cpu || 0;
+                const ram = s.ram || 0;
+                const netIn = s.net_in || 0; // Postgres 字段
+                const netOut = s.net_out || 0; // Postgres 字段
+                const trafficUsed = s.traffic_used || 0; // Postgres 字段
+                
+                let pct = 0;
+                if (!isUnl) pct = Math.min(100, (trafficUsed / Number(s.bandwidth_limit)) * 100);
+                const barClass = pct > 90 ? 'bg-red-500' : pct > 75 ? 'bg-yellow-500' : 'bg-cyan-500';
+
+                const latBars = Store.servers[s.id]?.latencyHistory.map(v => `<div class="chart-bar flex-1 w-1 rounded-sm ${v<50?'bg-green-500':v<150?'bg-yellow-500':'bg-red-500'}" style="height:${Math.min(100, v/2)}%"></div>`).join('') || '';
+                const lossBars = Store.servers[s.id]?.packetHistory.map(v => `<div class="chart-bar flex-1 w-1 rounded-sm ${v<1?'bg-green-500':'bg-red-500'}" style="height:${Math.min(100, v*10)}%"></div>`).join('') || '';
+
+
+                return `<div class="glass-panel rounded-xl p-5 transition-all hover:border-slate-600/50 group relative overflow-hidden flex flex-col h-full" id="card-${s.id}">
+                    <div class="absolute -right-4 -bottom-4 opacity-[0.03] pointer-events-none"><img src="${flagUrl}" class="w-32 grayscale"/></div>
+                    <div class="flex justify-between items-start mb-2 relative z-10">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-7 rounded bg-slate-800 shadow-sm overflow-hidden border border-slate-700/50 relative"><img src="${flagUrl}" class="w-full h-full object-cover"></div>
+                            <div>
+                                <a href="/server/${s.id}" class="hover:text-blue-400 transition-colors">
+                                    <h4 class="font-bold text-sm text-white flex items-center gap-2">${s.name} <i class="ti ti-external-link text-xs opacity-50"></i></h4>
+                                </a>
+                                <div class="text-xs text-slate-500 flex items-center gap-2 mt-1"><img src="${osIcon}" class="w-3 h-3" onerror="this.src='https://cdn.simpleicons.org/linux';this.onerror=null;"> <span>${s.type}</span><span class="w-0.5 h-2 bg-slate-700 rounded-full"></span><span class="text-green-500">${s.updated_at > (Date.now()/1000 - 60) ? 'Online' : 'Offline'}</span></div>
+                            </div>
+                        </div>
+                        <div class="text-right"><div class="text-xs text-slate-400 mb-1">Ping (${pingTargetName})</div><div class="text-sm font-mono ${pingClass}">${pingDisplay}</div></div>
+                    </div>
+                    ${this.renderTags(s.tags)}
+                    <div class="space-y-2 mb-4 relative z-10">
+                        <div><div class="flex justify-between text-xs mb-1"><span class="text-slate-500">CPU</span><span class="text-slate-300 font-mono">${Math.round(cpu)}%</span></div><div class="progress-track h-1.5 w-full"><div class="progress-bar bg-blue-500" style="width:${cpu}%"></div></div></div>
+                        <div><div class="flex justify-between text-xs mb-1"><span class="text-slate-500">RAM</span><span class="text-slate-300 font-mono">${Math.round(ram)}%</span></div><div class="progress-track h-1.5 w-full"><div class="progress-bar bg-purple-500" style="width:${ram}%"></div></div></div>
+                    </div>
+                    <div class="mb-4 relative z-10"><div class="flex justify-between text-xs mb-1"><span class="text-slate-500">Traffic</span><span class="text-slate-300 font-mono text-[10px]">${this.formatBytes(trafficUsed)} / ${limitText}</span></div><div class="progress-track h-2 w-full relative overflow-hidden"><div class="progress-bar ${isUnl ? 'progress-bar-unlimited' : barClass}" style="width:${isUnl ? '100%' : pct+'%'}"></div>${isUnl ? '<div class="absolute inset-0 flex items-center justify-center text-white drop-shadow-md pt-[1px]"><i class="ti ti-infinity text-base font-bold"></i></div>' : ''}</div></div>
+                    <div class="grid grid-cols-2 gap-4 py-2 border-t border-slate-700/50 border-b mb-3 bg-slate-800/20 rounded-lg px-2 relative z-10"><div><div class="text-[10px] uppercase text-slate-500 mb-1">In</div><div class="text-sm font-mono text-white">${netIn.toFixed(1)} Mbps</div></div><div><div class="text-[10px] uppercase text-slate-500 mb-1">Out</div><div class="text-sm font-mono text-white">${netOut.toFixed(1)} Mbps</div></div></div>
+                    <div class="grid grid-cols-2 gap-2 h-8 mb-4 relative z-10"><div class="flex items-end gap-[1px] h-full opacity-80">${latBars}</div><div class="flex items-end gap-[1px] h-full opacity-80">${lossBars}</div></div>
+                    <div class="mt-auto pt-3 border-t border-slate-700/30 relative z-10"><div class="grid grid-cols-2 gap-3 text-xs"><div class="flex items-center justify-center gap-2 text-slate-400 bg-slate-800/50 py-1.5 rounded"><i class="ti ti-calendar-event text-blue-400"></i><span>${s.expire_date}</span></div><div class="flex items-center justify-center gap-2 text-slate-400 bg-slate-800/50 py-1.5 rounded"><i class="ti ti-coin text-yellow-400"></i><span>${s.price}</span></div></div></div>
+                </div>`;
+            },
+            updateGlobeArcs() {
+                if (!this.globe) return;
+                const servers = Object.values(Store.servers);
+                const points = servers.map(s => ({ lat: s.lat, lng: s.lng, flagUrl: `https://flagcdn.com/w20/${s.code}.png` }));
+                this.globe.htmlElementsData(points);
+                
+                const currentArcs = [];
+                const start = { lat: 31.2304, lng: 121.4737 };
+                servers.filter(s => s.id !== 'cn-sha').forEach(s => {
+                    const intensity = Math.min(1, ((s.net_in||0) + (s.net_out||0)) / 500);
+                    const baseId = `base-${s.id}`; const particleId = `part-${s.id}`;
+                    if (!Store.globeArcs[baseId]) { Store.globeArcs[baseId] = { startLat: start.lat, startLng: start.lng, endLat: s.lat, endLng: s.lng, color: 'rgba(255, 255, 255, 0.3)', stroke: 0.4, isParticle: false, dashLength: 0.05, dashGap: 0.05 }; }
+                    currentArcs.push(Store.globeArcs[baseId]);
+                    let color = '#60a5fa'; if (intensity > 0.8) color = '#ef4444'; else if (intensity > 0.4) color = '#facc15';
+                    let gap; if (intensity < 0.05) gap = 6.0; else if (intensity < 0.2) gap = 3.0 - (intensity * 5); else gap = Math.max(0.05, 1.0 - (intensity * 1.2));
+                    if (!Store.globeArcs[particleId]) { Store.globeArcs[particleId] = { startLat: start.lat, startLng: start.lng, endLat: s.lat, endLng: s.lng, isParticle: true, stroke: 0.9, dashLength: 0.004 }; }
+                    const p = Store.globeArcs[particleId]; p.color = color; p.animateTime = Math.max(800, 4000 - (intensity * 3000)); p.dashGap = gap;
+                    currentArcs.push(p);
+                });
+                this.globe.arcsData(currentArcs);
+            },
+            
+            initGlobe() {
+                const elem = document.getElementById('globe-container');
+                const statusEl = document.getElementById('globe-status');
+                if(!window.Globe || !elem) return;
+                
+                fetch('https://unpkg.com/globe.gl/example/datasets/ne_110m_admin_0_countries.geojson')
+                    .then(res => res.ok ? res.json() : { features: [] })
+                    .then(countries => {
+                        if (statusEl) statusEl.style.display = 'none';
+                        this.globe = Globe()(elem)
+                            .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
+                            .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+                            .polygonsData(countries.features)
+                            .polygonCapColor(() => 'rgba(0,0,0,0)')
+                            .polygonSideColor(() => 'rgba(255,255,255,0.05)')
+                            .polygonStrokeColor(() => 'rgba(255, 255, 255, 0.08)')
+                            .polygonAltitude(0.008)
+                            .htmlElementsData([])
+                            .htmlElement(d => { const el = document.createElement('img'); el.src = d.flagUrl; el.className = 'globe-flag-marker'; return el; })
+                            .arcsData([])
+                            .arcColor('color')
+                            .arcStroke('stroke')
+                            .arcDashLength(d => d.isParticle ? d.dashLength : d.dashLength)
+                            .arcDashGap(d => d.isParticle ? d.dashGap : d.dashGap)
+                            .arcDashAnimateTime(d => d.isParticle ? d.animateTime : 0)
+                            .width(elem.offsetWidth)
+                            .height(elem.offsetHeight);
+                        this.globe.controls().autoRotate = true;
+                        this.globe.controls().autoRotateSpeed = 0.5;
+                        this.globe.pointOfView({ lat: 20, lng: 100, altitude: 2.5 });
+                        window.addEventListener('resize', () => { 
+                            if(this.globe && elem) {
+                                this.globe.width(elem.offsetWidth); 
+                                this.globe.height(elem.offsetHeight); 
+                            }
+                        });
+                    })
+                    .catch(e => console.error(e));
+            },
+            animate() {
+                setTimeout(() => requestAnimationFrame(() => this.animate()), 1000);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            Store.init();
+            Renderer.init();
+        });
+    </script>
+</body>
+</html>

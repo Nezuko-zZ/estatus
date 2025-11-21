@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>estatus - 管理后台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { bg: '#0f172a' } } } } }</script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <style>body { background: #0f172a; color: #e2e8f0; }</style>
+</head>
+<body class="p-6 max-w-6xl mx-auto min-h-screen">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-2xl font-bold flex items-center gap-2"><i class="ti ti-settings"></i> 全局控制台</h1>
+        <a href="/" class="px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800 transition text-sm">返回监控页</a>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8">
+        
+        <!-- 1. Ping 目标库管理 -->
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg flex items-center gap-2"><i class="ti ti-target"></i> Ping 目标库</h3>
+                <button onclick="addPingTarget()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs">+ 新增目标</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-slate-400 uppercase bg-slate-900/50">
+                        <tr><th class="px-4 py-2">名称</th><th class="px-4 py-2">地址 (Host/IP)</th><th class="px-4 py-2">分类</th><th class="px-4 py-2">操作</th></tr>
+                    </thead>
+                    <tbody id="pingTargetsList" class="divide-y divide-slate-700"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. Ping 分配矩阵 -->
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i class="ti ti-arrows-split"></i> 监控任务分配</h3>
+            <p class="text-slate-400 text-xs mb-4">勾选以分配任务。探针下一次心跳时将自动同步配置。</p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left border-collapse">
+                    <thead>
+                        <tr id="matrixHeader" class="text-xs text-slate-400 uppercase bg-slate-900/50">
+                            <th class="px-4 py-3 border-b border-slate-700 sticky left-0 bg-slate-900 z-10">服务器 \ 目标</th>
+                            <!-- 动态插入 Ping 目标列 -->
+                        </tr>
+                    </thead>
+                    <tbody id="matrixBody" class="divide-y divide-slate-700">
+                        <!-- 动态插入服务器行 -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex justify-end">
+                <button onclick="saveAllocations()" class="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded shadow-lg">保存分配策略</button>
+            </div>
+        </div>
+
+        <!-- 3. 全局设置 -->
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <h3 class="font-bold text-lg mb-4">外观设置</h3>
+            <div class="flex gap-4">
+                <input type="text" id="bgInput" class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white" placeholder="背景图片 URL">
+                <button onclick="saveSettings()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let pingTargets = [];
+        let servers = [];
+
+        // 初始化加载
+        async function init() {
+            const [targetsRes, allocRes, configRes] = await Promise.all([
+                fetch('/api/admin/ping-targets').then(r=>r.json()),
+                fetch('/api/admin/servers-allocations').then(r=>r.json()), // 获取服务器列表及其当前分配
+                fetch('/api/config/public').then(r=>r.json())
+            ]);
+            
+            if (targetsRes.error) return window.location.href = '/login';
+            
+            pingTargets = targetsRes;
+            servers = allocRes;
+            
+            renderTargetsList();
+            renderMatrix();
+            document.getElementById('bgInput').value = configRes.background_image || '';
+        }
+
+        // --- 目标库逻辑 ---
+        function renderTargetsList() {
+            const tbody = document.getElementById('pingTargetsList');
+            tbody.innerHTML = pingTargets.map(t => `
+                <tr>
+                    <td class="px-4 py-2"><input value="${t.name}" onchange="updateTarget(${t.id}, 'name', this.value)" class="bg-transparent border-b border-slate-600 focus:border-blue-500 outline-none w-full"></td>
+                    <td class="px-4 py-2"><input value="${t.host}" onchange="updateTarget(${t.id}, 'host', this.value)" class="bg-transparent border-b border-slate-600 focus:border-blue-500 outline-none w-full font-mono text-xs"></td>
+                    <td class="px-4 py-2"><input value="${t.category||''}" onchange="updateTarget(${t.id}, 'category', this.value)" class="bg-transparent border-b border-slate-600 focus:border-blue-500 outline-none w-20"></td>
+                    <td class="px-4 py-2"><button onclick="deleteTarget(${t.id})" class="text-red-400 hover:text-red-300"><i class="ti ti-trash"></i></button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function addPingTarget() {
+            const name = prompt("输入目标名称 (如 Google):");
+            if(!name) return;
+            await fetch('/api/admin/ping-targets', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, host: '1.1.1.1', category: 'Global' })
+            });
+            init();
+        }
+
+        async function updateTarget(id, key, val) {
+            const target = pingTargets.find(t => t.id === id);
+            target[key] = val;
+            await fetch('/api/admin/ping-targets', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(target)
+            });
+        }
+
+        async function deleteTarget(id) {
+            if(confirm('确定删除？这将同时移除所有服务器上的该监控项。')) {
+                await fetch(`/api/admin/ping-targets/${id}`, { method: 'DELETE' });
+                init();
+            }
+        }
+
+        // --- 分配矩阵逻辑 ---
+        function renderMatrix() {
+            // 表头
+            const header = document.getElementById('matrixHeader');
+            // 保留第一列，追加目标列
+            header.innerHTML = '<th class="px-4 py-3 border-b border-slate-700 sticky left-0 bg-slate-900 z-10">服务器 \\ 目标</th>' + 
+                pingTargets.map(t => `<th class="px-4 py-3 border-b border-slate-700 whitespace-nowrap" title="${t.host}">${t.name}</th>`).join('');
+
+            // 表体
+            const body = document.getElementById('matrixBody');
+            body.innerHTML = servers.map(s => {
+                const checkboxes = pingTargets.map(t => {
+                    const checked = s.target_ids.includes(t.id) ? 'checked' : '';
+                    return `<td class="px-4 py-3 text-center border-b border-slate-800">
+                        <input type="checkbox" ${checked} onchange="toggleAlloc('${s.id}', ${t.id}, this.checked)" class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-blue-600 focus:ring-blue-600">
+                    </td>`;
+                }).join('');
+                
+                return `<tr class="hover:bg-slate-800/30">
+                    <td class="px-4 py-3 border-b border-slate-800 font-medium text-white sticky left-0 bg-slate-900 z-10 shadow-r">${s.name} <span class="text-xs text-slate-500 block font-mono">${s.id}</span></td>
+                    ${checkboxes}
+                </tr>`;
+            }).join('');
+        }
+
+        function toggleAlloc(serverId, targetId, isChecked) {
+            const s = servers.find(x => x.id === serverId);
+            if (isChecked) {
+                if (!s.target_ids.includes(targetId)) s.target_ids.push(targetId);
+            } else {
+                s.target_ids = s.target_ids.filter(id => id !== targetId);
+            }
+        }
+
+        async function saveAllocations() {
+            // 批量保存
+            for (const s of servers) {
+                await fetch('/api/admin/allocations', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ server_id: s.id, target_ids: s.target_ids })
+                });
+            }
+            alert('策略已保存！探针将在下一次心跳同步配置。');
+        }
+
+        async function saveSettings() {
+            const bg = document.getElementById('bgInput').value;
+            await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ background_image: bg })
+            });
+            alert('设置已保存');
+        }
+
+        init();
+    </script>
+</body>
+</html>
