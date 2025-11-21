@@ -355,31 +355,31 @@
 
         // 1. 初始化图表
         function initCharts() {
-            const commonGrid = { left: '10px', right: '20px', top: '30px', bottom: '0px', containLabel: true };
+            const commonGrid = { left: '10px', right: '30px', top: '30px', bottom: '24px', containLabel: true };
             const commonTooltip = { trigger: 'axis', backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: '#334155', textStyle: { color: '#fff' } };
             const commonXAxis = { type: 'category', boundaryGap: false, axisLine: { lineStyle: { color: '#475569' } }, axisLabel: { color: '#94a3b8' } };
             const commonYAxis = { type: 'value', splitLine: { lineStyle: { color: '#334155', type: 'dashed' } }, axisLabel: { color: '#94a3b8' } };
 
             charts.cpu = echarts.init(document.getElementById('chart-cpu'));
             charts.cpu.setOption({
-                grid: commonGrid, tooltip: commonTooltip, xAxis: commonXAxis, yAxis: { ...commonYAxis, max: 100 },
-                series: [{ name: 'CPU', type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.2 }, lineStyle: { width: 2, color: '#3b82f6' }, itemStyle: { color: '#3b82f6' }, data: [] }]
+                grid: commonGrid, tooltip: commonTooltip, xAxis: commonXAxis, yAxis: { ...commonYAxis, max: 100, name: 'CPU (%)', nameTextStyle: { color: '#94a3b8' } },
+                series: [{ name: 'CPU', type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.2 }, lineStyle: { width: 1.4, color: '#3b82f6' }, itemStyle: { color: '#3b82f6' }, data: [] }]
             });
 
             charts.net = echarts.init(document.getElementById('chart-net'));
             charts.net.setOption({
-                grid: commonGrid, tooltip: commonTooltip, xAxis: commonXAxis, yAxis: commonYAxis,
+                grid: commonGrid, tooltip: commonTooltip, xAxis: commonXAxis, yAxis: { ...commonYAxis, name: '速率 (Mbps)', nameTextStyle: { color: '#94a3b8' } },
                 legend: { textStyle: { color: '#cbd5e1' }, top: 0, right: 10 },
                 series: [
-                    { name: '入网', type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.1 }, lineStyle: { width: 2, color: '#10b981' }, itemStyle: { color: '#10b981' }, data: [] },
-                    { name: '出网', type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.1 }, lineStyle: { width: 2, color: '#3b82f6' }, itemStyle: { color: '#3b82f6' }, data: [] }
+                    { name: '入网', type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.1 }, lineStyle: { width: 1.4, color: '#10b981' }, itemStyle: { color: '#10b981' }, data: [] },
+                    { name: '出网', type: 'line', smooth: true, showSymbol: false, areaStyle: { opacity: 0.1 }, lineStyle: { width: 1.4, color: '#3b82f6' }, itemStyle: { color: '#3b82f6' }, data: [] }
                 ]
             });
 
             charts.ping = echarts.init(document.getElementById('chart-ping'));
             charts.ping.setOption({
-                grid: commonGrid, tooltip: commonTooltip, xAxis: commonXAxis, yAxis: commonYAxis,
-                legend: { show: false }, 
+                grid: commonGrid, tooltip: commonTooltip, xAxis: commonXAxis, yAxis: { ...commonYAxis, name: '延迟 (ms)', nameTextStyle: { color: '#94a3b8' } },
+                legend: { show: false },
                 series: []
             });
 
@@ -437,25 +437,17 @@
                 btn.classList.add('active');
             }
 
-            if (range === 'rt') return; 
-
-            const apiRange = ['1h','4h','24h'].includes(range) ? '24h' : '30d';
+            if (range === 'rt') return;
             try {
                 if(charts[type]) charts[type].showLoading({ text: '加载中...', color: '#3b82f6', textColor: '#fff', maskColor: 'rgba(0,0,0,0.2)' });
                 
-                const res = await fetch(`/api/server/${serverId}/history?range=${apiRange}`);
+                const res = await fetch(`/api/server/${serverId}/history?range=${range}`);
                 const data = await res.json();
                 
                 if(charts[type]) charts[type].hideLoading();
 
                 const now = Date.now() / 1000;
-                const limitMap = { '1h': 3600, '4h': 14400, '24h': 86400, '7d': 604800, '30d': 2592000 };
-                const limit = limitMap[range] || Infinity;
-
-                const filtered = data.filter(d => {
-                    const ts = d.created_at || (new Date(d.time_slot).getTime()/1000);
-                    return (now - ts) <= limit;
-                });
+                const filtered = data;
 
                 const xData = filtered.map(d => {
                     const ts = (d.created_at || new Date(d.time_slot).getTime()/1000) * 1000;
