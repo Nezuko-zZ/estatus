@@ -391,15 +391,19 @@
                 series: [{ name: '流量 (GB)', type: 'bar', itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] }, data: [] }]
             });
 
-            const createGauge = (dom, color) => echarts.init(dom).setOption({
-                series: [{
-                    type: 'gauge', startAngle: 90, endAngle: -270, pointer: { show: false },
-                    progress: { show: true, overlap: false, roundCap: true, clip: false, itemStyle: { color: color } },
-                    axisLine: { lineStyle: { width: 8, color: [[1, 'rgba(255,255,255,0.1)']] } },
-                    splitLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false }, detail: { show: false },
-                    data: [{ value: 0 }]
-                }]
-            });
+            const createGauge = (dom, color) => {
+                const chart = echarts.init(dom);
+                chart.setOption({
+                    series: [{
+                        type: 'gauge', startAngle: 90, endAngle: -270, pointer: { show: false },
+                        progress: { show: true, overlap: false, roundCap: true, clip: false, itemStyle: { color: color } },
+                        axisLine: { lineStyle: { width: 8, color: [[1, 'rgba(255,255,255,0.1)']] } },
+                        splitLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false }, detail: { show: false },
+                        data: [{ value: 0 }]
+                    }]
+                });
+                return chart;
+            };
             gauges.cpu = createGauge(document.getElementById('gauge-cpu'), '#3b82f6');
             gauges.ram = createGauge(document.getElementById('gauge-ram'), '#a855f7');
             gauges.disk = createGauge(document.getElementById('gauge-disk'), '#f59e0b');
