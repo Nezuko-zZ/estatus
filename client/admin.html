@@ -6,184 +6,222 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class', theme: { extend: { colors: { dark: { bg: '#0f172a' } } } } }</script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-    <style>body { background: #0f172a; color: #e2e8f0; }</style>
+    <style>
+        body { background: #0f172a; color: #e2e8f0; }
+        .glass { background: rgba(30, 41, 59, 0.65); border: 1px solid rgba(148, 163, 184, 0.15); backdrop-filter: blur(12px); }
+        .menu-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; color: #cbd5e1; cursor: pointer; transition: all .2s; }
+        .menu-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .menu-item.active { background: #1d4ed8; color: #fff; box-shadow: 0 10px 30px -10px rgba(59,130,246,.6); }
+    </style>
 </head>
-<body class="p-6 max-w-6xl mx-auto min-h-screen">
-    <div class="flex justify-between items-center mb-8">
-        <h1 class="text-2xl font-bold flex items-center gap-2"><i class="ti ti-settings"></i> 全局控制台</h1>
-        <a href="/" class="px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800 transition text-sm">返回监控页</a>
-    </div>
+<body class="min-h-screen">
+    <div class="flex h-screen">
+        <aside class="w-64 glass p-5 flex flex-col gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600/30 flex items-center justify-center text-blue-200 font-bold">E</div>
+                <div>
+                    <div class="text-sm text-slate-300">estatus</div>
+                    <div class="text-xs text-slate-500">管理控制台</div>
+                </div>
+            </div>
+            <div class="flex-1 space-y-2">
+                <div class="menu-item active" data-target="user-panel"><i class="ti ti-user-cog"></i> 用户设置</div>
+                <div class="menu-item" data-target="ping-panel"><i class="ti ti-radar"></i> Ping 测试管理</div>
+                <div class="menu-item" data-target="vps-panel"><i class="ti ti-server"></i> VPS 管理</div>
+            </div>
+            <a href="/" class="text-sm text-slate-400 hover:text-white flex items-center gap-2"><i class="ti ti-arrow-left"></i> 返回首页</a>
+        </aside>
 
-    <div class="grid grid-cols-1 gap-8">
-        
-        <!-- 1. Ping 目标库管理 -->
-        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-lg flex items-center gap-2"><i class="ti ti-target"></i> Ping 目标库</h3>
-                <button onclick="addPingTarget()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs">+ 新增目标</button>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left">
-                    <thead class="text-xs text-slate-400 uppercase bg-slate-900/50">
-                        <tr><th class="px-4 py-2">名称</th><th class="px-4 py-2">地址 (Host/IP)</th><th class="px-4 py-2">分类</th><th class="px-4 py-2">操作</th></tr>
-                    </thead>
-                    <tbody id="pingTargetsList" class="divide-y divide-slate-700"></tbody>
-                </table>
-            </div>
-        </div>
+        <main class="flex-1 overflow-y-auto p-6 space-y-6">
+            <!-- 用户设置 -->
+            <section id="user-panel" class="glass rounded-2xl p-6 shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2 text-lg font-semibold"><i class="ti ti-user-cog text-blue-400"></i> 用户设置</div>
+                    <button id="save-profile" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white">保存</button>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <label class="text-sm space-y-2">
+                        <span class="text-slate-300">账号</span>
+                        <input id="profile-username" class="w-full rounded-lg bg-slate-900/60 border border-slate-700 px-3 py-2" />
+                    </label>
+                    <label class="text-sm space-y-2">
+                        <span class="text-slate-300">密码</span>
+                        <input id="profile-password" type="password" class="w-full rounded-lg bg-slate-900/60 border border-slate-700 px-3 py-2" />
+                    </label>
+                    <label class="text-sm space-y-2">
+                        <span class="text-slate-300">站点名称</span>
+                        <input id="profile-site" class="w-full rounded-lg bg-slate-900/60 border border-slate-700 px-3 py-2" />
+                    </label>
+                    <label class="text-sm space-y-2">
+                        <span class="text-slate-300">站点头像</span>
+                        <input id="profile-avatar" class="w-full rounded-lg bg-slate-900/60 border border-slate-700 px-3 py-2" />
+                    </label>
+                    <label class="text-sm space-y-2 md:col-span-2">
+                        <span class="text-slate-300">背景图</span>
+                        <input id="profile-bg" class="w-full rounded-lg bg-slate-900/60 border border-slate-700 px-3 py-2" />
+                    </label>
+                </div>
+                <p id="profile-status" class="text-xs text-slate-400 mt-2"></p>
+            </section>
 
-        <!-- 2. Ping 分配矩阵 -->
-        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-            <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i class="ti ti-arrows-split"></i> 监控任务分配</h3>
-            <p class="text-slate-400 text-xs mb-4">勾选以分配任务。探针下一次心跳时将自动同步配置。</p>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left border-collapse">
-                    <thead>
-                        <tr id="matrixHeader" class="text-xs text-slate-400 uppercase bg-slate-900/50">
-                            <th class="px-4 py-3 border-b border-slate-700 sticky left-0 bg-slate-900 z-10">服务器 \ 目标</th>
-                            <!-- 动态插入 Ping 目标列 -->
-                        </tr>
-                    </thead>
-                    <tbody id="matrixBody" class="divide-y divide-slate-700">
-                        <!-- 动态插入服务器行 -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="mt-4 flex justify-end">
-                <button onclick="saveAllocations()" class="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded shadow-lg">保存分配策略</button>
-            </div>
-        </div>
+            <!-- Ping 管理 -->
+            <section id="ping-panel" class="glass rounded-2xl p-6 shadow-xl hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2 text-lg font-semibold"><i class="ti ti-radar text-emerald-400"></i> Ping 测试地址</div>
+                    <button id="add-target" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm">新增目标</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="text-xs text-slate-400 uppercase bg-slate-900/60">
+                            <tr><th class="px-3 py-2">名称</th><th class="px-3 py-2">地址</th><th class="px-3 py-2">地区</th><th class="px-3 py-2">默认</th><th class="px-3 py-2">操作</th></tr>
+                        </thead>
+                        <tbody id="target-body" class="divide-y divide-slate-700"></tbody>
+                    </table>
+                </div>
+            </section>
 
-        <!-- 3. 全局设置 -->
-        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-            <h3 class="font-bold text-lg mb-4">外观设置</h3>
-            <div class="flex gap-4">
-                <input type="text" id="bgInput" class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white" placeholder="背景图片 URL">
-                <button onclick="saveSettings()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500">保存</button>
-            </div>
-        </div>
+            <!-- VPS 管理 -->
+            <section id="vps-panel" class="glass rounded-2xl p-6 shadow-xl hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2 text-lg font-semibold"><i class="ti ti-server text-orange-400"></i> VPS 管理</div>
+                    <span class="text-xs text-slate-400">点击卡片即可编辑并保存</span>
+                </div>
+                <div id="vps-list" class="grid lg:grid-cols-2 gap-4"></div>
+            </section>
+        </main>
     </div>
 
     <script>
-        let pingTargets = [];
+        let profile = {};
+        let targets = [];
         let servers = [];
 
-        // 初始化加载
-        async function init() {
-            const [targetsRes, allocRes, configRes] = await Promise.all([
-                fetch('/api/admin/ping-targets').then(r=>r.json()),
-                fetch('/api/admin/servers-allocations').then(r=>r.json()), // 获取服务器列表及其当前分配
-                fetch('/api/config/public').then(r=>r.json())
-            ]);
-            
-            if (targetsRes.error) return window.location.href = '/login';
-            
-            pingTargets = targetsRes;
-            servers = allocRes;
-            
-            renderTargetsList();
-            renderMatrix();
-            document.getElementById('bgInput').value = configRes.background_image || '';
+        async function loadData() {
+            const res = await fetch('/api/admin/profile');
+            if (res.status === 401) return window.location.href = '/login';
+            profile = await res.json();
+            targets = await fetch('/api/admin/ping-targets').then(r=>r.json());
+            servers = await fetch('/api/admin/servers').then(r=>r.json());
+            renderProfile();
+            renderTargets();
+            renderServers();
         }
 
-        // --- 目标库逻辑 ---
-        function renderTargetsList() {
-            const tbody = document.getElementById('pingTargetsList');
-            tbody.innerHTML = pingTargets.map(t => `
+        function renderProfile() {
+            document.getElementById('profile-username').value = profile.username || '';
+            document.getElementById('profile-password').value = profile.password || '';
+            document.getElementById('profile-site').value = profile.site_name || '';
+            document.getElementById('profile-avatar').value = profile.site_avatar || '';
+            document.getElementById('profile-bg').value = profile.background_image || '';
+        }
+
+        function renderTargets() {
+            const body = document.getElementById('target-body');
+            body.innerHTML = targets.map(t => `
                 <tr>
-                    <td class="px-4 py-2"><input value="${t.name}" onchange="updateTarget(${t.id}, 'name', this.value)" class="bg-transparent border-b border-slate-600 focus:border-blue-500 outline-none w-full"></td>
-                    <td class="px-4 py-2"><input value="${t.host}" onchange="updateTarget(${t.id}, 'host', this.value)" class="bg-transparent border-b border-slate-600 focus:border-blue-500 outline-none w-full font-mono text-xs"></td>
-                    <td class="px-4 py-2"><input value="${t.category||''}" onchange="updateTarget(${t.id}, 'category', this.value)" class="bg-transparent border-b border-slate-600 focus:border-blue-500 outline-none w-20"></td>
-                    <td class="px-4 py-2"><button onclick="deleteTarget(${t.id})" class="text-red-400 hover:text-red-300"><i class="ti ti-trash"></i></button></td>
+                    <td class="px-3 py-2"><input value="${t.name||''}" data-id="${t.id}" data-key="name" class="w-full bg-transparent border-b border-slate-700 focus:border-blue-500 outline-none"></td>
+                    <td class="px-3 py-2"><input value="${t.host||''}" data-id="${t.id}" data-key="host" class="w-full bg-transparent border-b border-slate-700 focus:border-blue-500 outline-none font-mono"></td>
+                    <td class="px-3 py-2"><input value="${t.region||''}" data-id="${t.id}" data-key="region" class="w-full bg-transparent border-b border-slate-700 focus:border-blue-500 outline-none"></td>
+                    <td class="px-3 py-2 text-center"><input type="radio" name="defaultTarget" ${t.is_default ? 'checked' : ''} onchange="setDefault(${t.id})"></td>
+                    <td class="px-3 py-2 text-right"><button onclick="deleteTarget(${t.id})" class="text-red-400 hover:text-red-300"><i class="ti ti-trash"></i></button></td>
                 </tr>
+            `).join('');
+            body.querySelectorAll('input[data-key]').forEach(input => {
+                input.addEventListener('change', () => updateTarget(input.dataset.id, input.dataset.key, input.value));
+            });
+        }
+
+        function renderServers() {
+            const list = document.getElementById('vps-list');
+            list.innerHTML = servers.map(s => `
+                <div class="glass rounded-xl p-4 border border-slate-700 space-y-3" data-id="${s.id}">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-semibold text-white">${s.name || '未命名'} <span class="text-xs text-slate-400">(${s.id})</span></div>
+                            <div class="text-xs text-slate-500">${s.loc || ''}</div>
+                        </div>
+                        <button class="px-3 py-1 text-xs bg-blue-600 text-white rounded" onclick="saveServer('${s.id}')">保存</button>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-3 text-sm">
+                        <label class="space-y-1"><span class="text-slate-400 text-xs">名称</span><input data-field="name" value="${s.name||''}" class="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1"></label>
+                        <label class="space-y-1"><span class="text-slate-400 text-xs">国家</span><input data-field="loc" value="${s.loc||''}" class="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1"></label>
+                        <label class="space-y-1"><span class="text-slate-400 text-xs">币种</span><input data-field="currency" value="${s.currency||''}" class="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1" placeholder="CNY/USD/EUR"></label>
+                        <label class="space-y-1"><span class="text-slate-400 text-xs">价格</span><input data-field="price" value="${s.price||''}" class="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1" placeholder="99"></label>
+                        <label class="space-y-1"><span class="text-slate-400 text-xs">流量单位</span><input data-field="traffic_unit" value="${s.traffic_unit||'T'}" class="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1" placeholder="G/T"></label>
+                        <label class="space-y-1"><span class="text-slate-400 text-xs">流量方向</span><input data-field="traffic_direction" value="${s.traffic_direction||'双向'}" class="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1" placeholder="上行/下行/总"></label>
+                        <label class="space-y-1"><span class="text-slate-400 text-xs">开始时间</span><input data-field="traffic_start" value="${s.traffic_start||''}" class="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1" placeholder="Unix 时间戳"></label>
+                        <label class="space-y-1"><span class="text-slate-400 text-xs">到期时间</span><input data-field="traffic_end" value="${s.traffic_end||''}" class="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1" placeholder="Unix 时间戳"></label>
+                        <label class="space-y-1"><span class="text-slate-400 text-xs">计费</span><input data-field="billing" value="${s.billing||'月付/年付/Free'}" class="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1"></label>
+                        <label class="space-y-1"><span class="text-slate-400 text-xs">序号</span><input data-field="display_order" value="${s.display_order||0}" class="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1" type="number"></label>
+                    </div>
+                </div>
             `).join('');
         }
 
-        async function addPingTarget() {
-            const name = prompt("输入目标名称 (如 Google):");
-            if(!name) return;
-            await fetch('/api/admin/ping-targets', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name, host: '1.1.1.1', category: 'Global' })
-            });
-            init();
-        }
-
-        async function updateTarget(id, key, val) {
-            const target = pingTargets.find(t => t.id === id);
-            target[key] = val;
-            await fetch('/api/admin/ping-targets', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(target)
-            });
+        async function updateTarget(id, key, value) {
+            const t = targets.find(x => x.id == id);
+            if (!t) return;
+            t[key] = value;
+            await fetch('/api/admin/ping-targets', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(t) });
         }
 
         async function deleteTarget(id) {
-            if(confirm('确定删除？这将同时移除所有服务器上的该监控项。')) {
-                await fetch(`/api/admin/ping-targets/${id}`, { method: 'DELETE' });
-                init();
-            }
+            await fetch(`/api/admin/ping-targets/${id}`, { method: 'DELETE' });
+            targets = targets.filter(t => t.id !== id);
+            renderTargets();
         }
 
-        // --- 分配矩阵逻辑 ---
-        function renderMatrix() {
-            // 表头
-            const header = document.getElementById('matrixHeader');
-            // 保留第一列，追加目标列
-            header.innerHTML = '<th class="px-4 py-3 border-b border-slate-700 sticky left-0 bg-slate-900 z-10">服务器 \\ 目标</th>' + 
-                pingTargets.map(t => `<th class="px-4 py-3 border-b border-slate-700 whitespace-nowrap" title="${t.host}">${t.name}</th>`).join('');
-
-            // 表体
-            const body = document.getElementById('matrixBody');
-            body.innerHTML = servers.map(s => {
-                const checkboxes = pingTargets.map(t => {
-                    const checked = s.target_ids.includes(t.id) ? 'checked' : '';
-                    return `<td class="px-4 py-3 text-center border-b border-slate-800">
-                        <input type="checkbox" ${checked} onchange="toggleAlloc('${s.id}', ${t.id}, this.checked)" class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-blue-600 focus:ring-blue-600">
-                    </td>`;
-                }).join('');
-                
-                return `<tr class="hover:bg-slate-800/30">
-                    <td class="px-4 py-3 border-b border-slate-800 font-medium text-white sticky left-0 bg-slate-900 z-10 shadow-r">${s.name} <span class="text-xs text-slate-500 block font-mono">${s.id}</span></td>
-                    ${checkboxes}
-                </tr>`;
-            }).join('');
+        async function setDefault(id) {
+            await fetch('/api/admin/ping-targets', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, is_default: true }) });
+            targets = await fetch('/api/admin/ping-targets').then(r=>r.json());
+            renderTargets();
         }
 
-        function toggleAlloc(serverId, targetId, isChecked) {
-            const s = servers.find(x => x.id === serverId);
-            if (isChecked) {
-                if (!s.target_ids.includes(targetId)) s.target_ids.push(targetId);
-            } else {
-                s.target_ids = s.target_ids.filter(id => id !== targetId);
-            }
+        document.getElementById('add-target').addEventListener('click', async () => {
+            const name = prompt('目标名称');
+            if (!name) return;
+            await fetch('/api/admin/ping-targets', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, host: '1.1.1.1', region: 'Global', is_default: false }) });
+            targets = await fetch('/api/admin/ping-targets').then(r=>r.json());
+            renderTargets();
+        });
+
+        document.getElementById('save-profile').addEventListener('click', async () => {
+            const payload = {
+                username: document.getElementById('profile-username').value,
+                password: document.getElementById('profile-password').value,
+                site_name: document.getElementById('profile-site').value,
+                site_avatar: document.getElementById('profile-avatar').value,
+                background_image: document.getElementById('profile-bg').value
+            };
+            await fetch('/api/admin/profile', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            await fetch('/api/admin/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ background_image: payload.background_image }) });
+            document.getElementById('profile-status').textContent = '已保存';
+        });
+
+        async function saveServer(id) {
+            const card = document.querySelector(`[data-id="${id}"]`);
+            if (!card) return;
+            const payload = {};
+            card.querySelectorAll('[data-field]').forEach(input => payload[input.dataset.field] = input.value);
+            await fetch(`/api/admin/servers/${id}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            card.classList.add('ring-2','ring-emerald-500');
+            setTimeout(() => card.classList.remove('ring-emerald-500','ring-2'), 800);
         }
 
-        async function saveAllocations() {
-            // 批量保存
-            for (const s of servers) {
-                await fetch('/api/admin/allocations', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ server_id: s.id, target_ids: s.target_ids })
-                });
-            }
-            alert('策略已保存！探针将在下一次心跳同步配置。');
-        }
-
-        async function saveSettings() {
-            const bg = document.getElementById('bgInput').value;
-            await fetch('/api/admin/settings', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ background_image: bg })
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                document.querySelectorAll('main section').forEach(sec => sec.classList.add('hidden'));
+                document.getElementById(item.dataset.target).classList.remove('hidden');
             });
-            alert('设置已保存');
-        }
+        });
 
-        init();
+        loadData();
+        window.saveServer = saveServer;
+        window.deleteTarget = deleteTarget;
+        window.setDefault = setDefault;
+        window.updateTarget = updateTarget;
     </script>
 </body>
 </html>

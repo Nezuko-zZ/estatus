@@ -15,6 +15,28 @@ const wss = new WebSocket.Server({ server });
 const PORT = 3000;
 const SECRET_KEY = 'estatus-secret-key-change-me';
 
+// --- 简单内存缓存 ---
+const metaCache = {
+  settings: null,
+  lastLoad: 0
+};
+
+async function getSetting(key, fallback = '') {
+    const now = Date.now();
+    if (!metaCache.settings || (now - metaCache.lastLoad > 5 * 60 * 1000)) {
+        const res = await pool.query('SELECT key, value FROM settings');
+        metaCache.settings = res.rows.reduce((acc, cur) => ({ ...acc, [cur.key]: cur.value }), {});
+        metaCache.lastLoad = now;
+    }
+    return metaCache.settings[key] ?? fallback;
+}
+
+async function setSetting(key, value) {
+    await pool.query(`INSERT INTO settings (key, value) VALUES ($1, $2)
+        ON CONFLICT (key) DO UPDATE SET value = $2`, [key, value]);
+    metaCache.settings = null;
+}
+
 // --- 数据库连接配置 ---
 // [修复] 这里必须是纯对象，不能是 new Pool()
 const dbConfig = {
@@ -61,13 +83,41 @@ async function initDB() {
     await client.query(`CREATE TABLE IF NOT EXISTS ping_logs (server_id TEXT, target_name TEXT, latency INTEGER, created_at INTEGER);`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_ping_server_time ON ping_logs(server_id, created_at);`);
 
+    await client.query(`CREATE TABLE IF NOT EXISTS ping_targets (
+        id SERIAL PRIMARY KEY,
+        name TEXT,
+        host TEXT,
+        region TEXT DEFAULT '',
+        is_default BOOLEAN DEFAULT false,
+        created_at INTEGER
+    );`);
+
+    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS currency TEXT;`);
+    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_unit TEXT;`);
+    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_direction TEXT;`);
+    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_start INTEGER;`);
+    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_end INTEGER;`);
+    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS billing TEXT;`);
+
     const defaultPwd = await client.query("SELECT value FROM settings WHERE key = 'admin_password'");
     if (defaultPwd.rowCount === 0) {
        await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['admin_password', 'admin']);
     }
+    const defaultUser = await client.query("SELECT value FROM settings WHERE key = 'admin_username'");
+    if (defaultUser.rowCount === 0) {
+       await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['admin_username', 'admin']);
+    }
     const defaultBg = await client.query("SELECT value FROM settings WHERE key = 'background_image'");
     if (defaultBg.rowCount === 0) {
         await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['background_image', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop']);
+    }
+    const defaultSite = await client.query("SELECT value FROM settings WHERE key = 'site_name'");
+    if (defaultSite.rowCount === 0) {
+        await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['site_name', 'estatus']);
+    }
+    const defaultAvatar = await client.query("SELECT value FROM settings WHERE key = 'site_avatar'");
+    if (defaultAvatar.rowCount === 0) {
+        await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['site_avatar', 'https://avatars.githubusercontent.com/u/9919?s=200&v=4']);
     }
     const defaultPing = await client.query("SELECT value FROM settings WHERE key = 'ping_targets'");
     if (defaultPing.rowCount === 0) {
@@ -77,6 +127,15 @@ async function initDB() {
             { name: "China Telecom", host: "chinatelecom.com.cn" }
         ]);
         await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['ping_targets', targets]);
+    }
+
+    const pingTableCount = await client.query('SELECT COUNT(*) FROM ping_targets');
+    if (Number(pingTableCount.rows[0].count) === 0) {
+        await client.query(`INSERT INTO ping_targets (name, host, region, is_default, created_at) VALUES
+            ('Google', 'google.com', 'Global', true, $1),
+            ('Cloudflare', '1.1.1.1', 'Global', false, $1),
+            ('China Telecom', 'chinatelecom.com.cn', 'CN', false, $1)
+        `, [Math.floor(Date.now()/1000)]);
     }
 
     await client.query('COMMIT');
@@ -97,6 +156,16 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../client')));
+
+function authMiddleware(req, res, next) {
+    const token = req.cookies.token;
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const decoded = jwt.verify(token, SECRET_KEY);
+        if (decoded?.role === 'admin') return next();
+    } catch (e) { /* ignore */ }
+    return res.status(401).json({ error: 'Unauthorized' });
+}
 
 // --- API 路由 ---
 app.post('/api/report', async (req, res) => {
@@ -155,32 +224,141 @@ app.post('/api/report', async (req, res) => {
     }
 });
 
-app.post('/api/login', async (req, res) => {
-    const { password } = req.body;
+app.get('/api/ping-targets', async (_req, res) => {
     try {
-        const result = await pool.query("SELECT value FROM settings WHERE key = 'admin_password'");
-        const storedPwd = result.rows[0]?.value;
-        if (password === storedPwd) {
-            const token = jwt.sign({ role: 'admin' }, SECRET_KEY, { expiresIn: '7d' });
+        const rows = await pool.query('SELECT * FROM ping_targets ORDER BY is_default DESC, id ASC');
+        res.json(rows.rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/profile', authMiddleware, async (_req, res) => {
+    try {
+        const [username, password, siteName, siteAvatar, bgImage] = await Promise.all([
+            getSetting('admin_username', 'admin'),
+            getSetting('admin_password', ''),
+            getSetting('site_name', 'estatus'),
+            getSetting('site_avatar', ''),
+            getSetting('background_image', '')
+        ]);
+        res.json({ username, password, site_name: siteName, site_avatar: siteAvatar, background_image: bgImage });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/profile', authMiddleware, async (req, res) => {
+    const { username, password, site_name, site_avatar } = req.body;
+    try {
+        if (username) await setSetting('admin_username', username);
+        if (password) await setSetting('admin_password', password);
+        if (site_name) await setSetting('site_name', site_name);
+        if (site_avatar) await setSetting('site_avatar', site_avatar);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/ping-targets', authMiddleware, async (_req, res) => {
+    try {
+        const rows = await pool.query('SELECT * FROM ping_targets ORDER BY is_default DESC, id ASC');
+        res.json(rows.rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/ping-targets', authMiddleware, async (req, res) => {
+    const { id, name, host, region, is_default } = req.body;
+    try {
+        let targetId = id;
+        if (id) {
+            await pool.query(`UPDATE ping_targets SET name=$1, host=$2, region=$3, is_default=$4 WHERE id=$5`,
+                [name, host, region || '', !!is_default, id]);
+        } else {
+            const inserted = await pool.query(`INSERT INTO ping_targets (name, host, region, is_default, created_at) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+                [name, host, region || '', !!is_default, Math.floor(Date.now()/1000)]);
+            targetId = inserted.rows[0].id;
+        }
+        if (is_default && targetId) {
+            await pool.query('UPDATE ping_targets SET is_default = FALSE WHERE id <> $1', [targetId]);
+            await pool.query('UPDATE ping_targets SET is_default = TRUE WHERE id = $1', [targetId]);
+        }
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/ping-targets/:id', authMiddleware, async (req, res) => {
+    try {
+        await pool.query('DELETE FROM ping_targets WHERE id = $1', [req.params.id]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const [[pwd], [user]] = await Promise.all([
+            pool.query("SELECT value FROM settings WHERE key = 'admin_password'"),
+            pool.query("SELECT value FROM settings WHERE key = 'admin_username'")
+        ]);
+        const storedPwd = pwd.rows[0]?.value;
+        const storedUser = user.rows[0]?.value || 'admin';
+        if (password === storedPwd && username === storedUser) {
+            const token = jwt.sign({ role: 'admin', username: storedUser }, SECRET_KEY, { expiresIn: '7d' });
             res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 3600 * 1000 });
-            res.json({ success: true });
-        } else { res.status(403).json({ success: false, message: '密码错误' }); }
+            res.json({ success: true, username: storedUser });
+        } else { res.status(403).json({ success: false, message: '账号或密码错误' }); }
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/config/public', async (req, res) => {
     try {
-        const bgRes = await pool.query("SELECT value FROM settings WHERE key = 'background_image'");
-        const targetRes = await pool.query("SELECT value FROM settings WHERE key = 'ping_targets'");
-        res.json({ background_image: bgRes.rows[0]?.value || '', ping_targets: JSON.parse(targetRes.rows[0]?.value || '[]') });
+        const [bg, siteName, avatar] = await Promise.all([
+            getSetting('background_image'),
+            getSetting('site_name'),
+            getSetting('site_avatar')
+        ]);
+        const targets = await pool.query('SELECT * FROM ping_targets ORDER BY is_default DESC, id ASC');
+        res.json({ background_image: bg, site_name: siteName, site_avatar: avatar, ping_targets: targets.rows });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/settings', authMiddleware, async (req, res) => {
+    const { background_image } = req.body;
+    try {
+        if (background_image) await setSetting('background_image', background_image);
+        res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/server/:id/history', async (req, res) => {
     try {
-        let timeFilter = Math.floor(Date.now() / 1000) - 86400;
+        const ranges = { '1h': 3600, '4h': 14400, '24h': 86400, '7d': 604800, '30d': 2592000 };
+        const seconds = ranges[req.query.range] || ranges['24h'];
+        let timeFilter = Math.floor(Date.now() / 1000) - seconds;
         const history = await pool.query(`SELECT created_at, cpu, ram, net_in, net_out FROM monitor_logs WHERE server_id = $1 AND created_at > $2 ORDER BY created_at ASC`, [req.params.id, timeFilter]);
         res.json(history.rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/servers', authMiddleware, async (_req, res) => {
+    try {
+        const rows = await pool.query('SELECT * FROM servers ORDER BY display_order ASC, name ASC');
+        res.json(rows.rows.map(r => ({ ...r, tags: JSON.parse(r.tags || '[]') })));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/servers/:id', authMiddleware, async (req, res) => {
+    const id = req.params.id;
+    const payload = req.body || {};
+    try {
+        const fields = ['name','type','loc','code','os','price','expire_date','bandwidth_limit','currency','traffic_unit','traffic_direction','traffic_start','traffic_end','billing','display_order'];
+        const sets = [];
+        const values = [];
+        fields.forEach((f, idx) => {
+            if (typeof payload[f] !== 'undefined') { sets.push(`${f}=$${sets.length+1}`); values.push(payload[f]); }
+        });
+        if (payload.tags) { sets.push(`${'tags'}=$${sets.length+1}`); values.push(JSON.stringify(payload.tags)); }
+        if (sets.length === 0) return res.json({ success: true });
+        values.push(id);
+        const sql = `UPDATE servers SET ${sets.join(', ')} WHERE id=$${sets.length+1}`;
+        await pool.query(sql, values);
+        res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -192,6 +370,11 @@ app.get('/server/:id', (req, res) => res.sendFile(path.join(__dirname, '../clien
 wss.on('connection', async (ws) => {
     try {
         const serversRes = await pool.query("SELECT * FROM servers");
+        const config = {
+            background_image: await getSetting('background_image'),
+            site_name: await getSetting('site_name'),
+            site_avatar: await getSetting('site_avatar')
+        };
         const liveData = {};
         for (const s of serversRes.rows) {
             const latestRes = await pool.query(`SELECT * FROM monitor_logs WHERE server_id = $1 ORDER BY created_at DESC LIMIT 1`, [s.id]);
@@ -210,7 +393,7 @@ wss.on('connection', async (ws) => {
                 tags: JSON.parse(s.tags || '[]') 
             };
         }
-        ws.send(JSON.stringify({ type: 'full_sync', data: liveData }));
+        ws.send(JSON.stringify({ type: 'full_sync', data: liveData, config }));
     } catch (e) { console.error("[WS Error]", e); }
 });
 

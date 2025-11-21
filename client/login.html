@@ -28,13 +28,19 @@
             <p class="text-slate-400 text-sm mt-2">请输入管理员密码以继续</p>
         </div>
 
-        <form id="loginForm" class="space-y-6">
-            <div>
-                <label class="block text-sm font-medium text-slate-300 mb-2">密码</label>
-                <input type="password" id="password" class="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-white placeholder-slate-500 transition" placeholder="••••••••" required>
+        <form id="loginForm" class="space-y-4">
+            <div class="grid gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">账号</label>
+                    <input type="text" id="username" class="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-white placeholder-slate-500 transition" placeholder="admin" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">密码</label>
+                    <input type="password" id="password" class="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-white placeholder-slate-500 transition" placeholder="••••••••" required>
+                </div>
             </div>
             <button type="submit" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition shadow-lg shadow-blue-500/20">
-                验证身份
+                登录管理后台
             </button>
         </form>
         <div id="msg" class="mt-4 text-center text-sm text-red-400 h-5"></div>
@@ -43,6 +49,7 @@
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const username = document.getElementById('username').value;
             const pwd = document.getElementById('password').value;
             const btn = e.target.querySelector('button');
             const msg = document.getElementById('msg');
@@ -54,7 +61,7 @@
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ password: pwd })
+                    body: JSON.stringify({ username, password: pwd })
                 });
                 const data = await res.json();
                 

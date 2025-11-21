@@ -56,6 +56,13 @@
         #connection-status.connected { color: #4ade80; background: rgba(20, 83, 45, 0.8); }
         #connection-status.disconnected { color: #f87171; background: rgba(127, 29, 29, 0.8); }
         #globe-status { z-index: 10; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); }
+
+        .filter-chip { padding: 0.375rem 0.75rem; font-size: 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1); background: rgba(30,41,59,0.6); color: #cbd5e1; transition: all 0.2s ease; }
+        .filter-chip:hover { background: #334155; color: #fff; }
+        .filter-chip.active { background: #2563eb; color: white; border-color: rgba(59,130,246,0.6); }
+        .view-btn { width: 36px; height: 36px; border-radius: 0.75rem; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; color: #cbd5e1; transition: all 0.2s ease; }
+        .view-btn:hover { color: white; border-color: rgba(255,255,255,0.1); }
+        .view-btn.active { background: #2563eb; color: white; border-color: rgba(59,130,246,0.6); box-shadow: 0 8px 20px -8px rgba(59,130,246,0.7); }
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
@@ -67,7 +74,7 @@
         <div class="container mx-auto px-4 h-full flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">E</div>
-                <span class="text-xl font-bold text-white">estatus</span>
+                <span class="text-xl font-bold text-white" id="site-name">estatus</span>
                 <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20">PROBE</span>
             </div>
             <div class="flex items-center gap-4 text-sm">
@@ -118,12 +125,37 @@
         </div>
 
         <!-- 节点列表 -->
-        <div id="server-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-8"></div>
+        <div class="glass-panel rounded-xl p-4 border border-white/10 space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button data-filter="all" class="filter-chip active">总览 (<span id="count-all">0</span>)</button>
+                    <button data-filter="online" class="filter-chip">在线 (<span id="count-online">0</span>)</button>
+                    <button data-filter="offline" class="filter-chip">离线 (<span id="count-offline">0</span>)</button>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 text-sm text-slate-300">
+                    <label class="flex items-center gap-2 bg-slate-900/60 border border-white/10 px-3 py-2 rounded-lg">
+                        <span class="text-xs text-slate-400">排序</span>
+                        <select id="sort-select" class="bg-transparent outline-none">
+                            <option value="order">序号</option>
+                            <option value="name">名称</option>
+                            <option value="country">国家</option>
+                            <option value="uptime">在线时间</option>
+                        </select>
+                    </label>
+                    <div class="flex items-center gap-2 bg-slate-900/60 border border-white/10 px-2 py-2 rounded-lg">
+                        <button id="view-grid" class="view-btn active" title="卡片视图"><i class="ti ti-layout-grid"></i></button>
+                        <button id="view-list" class="view-btn" title="列表视图"><i class="ti ti-list-details"></i></button>
+                    </div>
+                </div>
+            </div>
+            <div id="server-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4"></div>
+        </div>
     </main>
 
     <script>
         const Store = {
             servers: {}, isWsConnected: false, globe: null, globeArcs: {},
+            sortKey: 'order', filter: 'all', view: 'grid', siteName: 'estatus',
             
             // 统一更新入口
             updateServerData(id, data) {
@@ -168,13 +200,18 @@
 
                 ws.onmessage = (e) => { 
                     try {
-                        const msg = JSON.parse(e.data); 
+                        const msg = JSON.parse(e.data);
                         if (msg.type === 'full_sync') {
                             if (msg.config && msg.config.background_image) {
                                 document.documentElement.style.setProperty('--bg-image', `url('${msg.config.background_image}')`);
                             }
-                            Object.keys(msg.data).forEach(id => this.updateServerData(id, msg.data[id])); 
-                            Renderer.renderAll(); 
+                            if (msg.config?.site_name) {
+                                Store.siteName = msg.config.site_name;
+                                const nameEl = document.getElementById('site-name');
+                                if (nameEl) nameEl.textContent = msg.config.site_name;
+                            }
+                            Object.keys(msg.data).forEach(id => this.updateServerData(id, msg.data[id]));
+                            Renderer.renderAll();
                         } else if (msg.type === 'update_single') {
                             this.updateServerData(msg.id, msg.data);
                             Renderer.renderAll();
@@ -199,6 +236,7 @@
             
             // 全量渲染/更新
             renderAll() {
+                const nowTs = Date.now()/1000;
                 const servers = Object.values(Store.servers);
                 
                 // 更新总计数据
@@ -226,9 +264,31 @@
                 if(elTime) elTime.innerText = new Date().toLocaleTimeString(); 
 
                 // 更新列表 (简单刷新)
+                const counts = {
+                    all: servers.length,
+                    online: servers.filter(s=>s.updated_at > nowTs - 60).length,
+                    offline: servers.filter(s=>s.updated_at <= nowTs - 60).length
+                };
+                ['all','online','offline'].forEach(k => {
+                    const el = document.getElementById(`count-${k}`);
+                    if (el) el.textContent = counts[k];
+                });
+
                 const grid = document.getElementById('server-grid');
                 if (grid) {
-                    grid.innerHTML = servers.map(s => this.createServerCardHTML(s)).join('');
+                    const filtered = servers.filter(s => {
+                        if (Store.filter === 'online') return s.updated_at > nowTs - 60;
+                        if (Store.filter === 'offline') return s.updated_at <= nowTs - 60;
+                        return true;
+                    });
+                    const sorted = filtered.sort((a,b)=>{
+                        if (Store.sortKey === 'name') return (a.name||'').localeCompare(b.name||'');
+                        if (Store.sortKey === 'country') return (a.loc||'').localeCompare(b.loc||'');
+                        if (Store.sortKey === 'uptime') return (b.updated_at||0) - (a.updated_at||0);
+                        return (a.display_order||0) - (b.display_order||0);
+                    });
+                    grid.className = Store.view === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4';
+                    grid.innerHTML = sorted.map(s => this.createServerCardHTML(s, Store.view)).join('');
                 }
                 
                 this.updateGlobeArcs();
@@ -252,7 +312,7 @@
                 return `<div class="flex flex-wrap gap-1.5 mb-4 relative z-10">${parsedTags.map(t => `<span class="px-2 py-0.5 rounded text-[10px] border ${colors[t.color]||colors.gray} font-medium">${t.text}</span>`).join('')}</div>`;
             },
 
-            createServerCardHTML(s) {
+            createServerCardHTML(s, viewMode = 'grid') {
                 const flagUrl = `https://flagcdn.com/w80/${s.code}.png`;
                 const osIcon = this.getOsIcon(s.os);
                 const limitText = s.bandwidth_limit === 'unlimited' ? 'Unlimited' : this.formatBytes(Number(s.bandwidth_limit));
@@ -291,8 +351,11 @@
                 const latBars = Store.servers[s.id]?.latencyHistory.map(v => `<div class="chart-bar flex-1 w-1 rounded-sm ${v<50?'bg-green-500':v<150?'bg-yellow-500':'bg-red-500'}" style="height:${Math.min(100, v/2)}%"></div>`).join('') || '';
                 const lossBars = Store.servers[s.id]?.packetHistory.map(v => `<div class="chart-bar flex-1 w-1 rounded-sm ${v<1?'bg-green-500':'bg-red-500'}" style="height:${Math.min(100, v*10)}%"></div>`).join('') || '';
 
+                const baseClass = viewMode === 'list'
+                    ? 'glass-panel rounded-xl p-4 transition-all hover:border-slate-600/50 group relative overflow-hidden flex flex-col'
+                    : 'glass-panel rounded-xl p-5 transition-all hover:border-slate-600/50 group relative overflow-hidden flex flex-col h-full';
 
-                return `<div class="glass-panel rounded-xl p-5 transition-all hover:border-slate-600/50 group relative overflow-hidden flex flex-col h-full" id="card-${s.id}">
+                return `<div class="${baseClass}" id="card-${s.id}">
                     <div class="absolute -right-4 -bottom-4 opacity-[0.03] pointer-events-none"><img src="${flagUrl}" class="w-32 grayscale"/></div>
                     <div class="flex justify-between items-start mb-2 relative z-10">
                         <div class="flex items-center gap-3">
@@ -386,6 +449,32 @@
         document.addEventListener('DOMContentLoaded', () => {
             Store.init();
             Renderer.init();
+
+            document.querySelectorAll('.filter-chip').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    Store.filter = btn.getAttribute('data-filter');
+                    Renderer.renderAll();
+                });
+            });
+
+            const sortSel = document.getElementById('sort-select');
+            if (sortSel) sortSel.addEventListener('change', (e) => {
+                Store.sortKey = e.target.value;
+                Renderer.renderAll();
+            });
+
+            const viewButtons = { grid: document.getElementById('view-grid'), list: document.getElementById('view-list') };
+            Object.entries(viewButtons).forEach(([key, btn]) => {
+                if (!btn) return;
+                btn.addEventListener('click', () => {
+                    Object.values(viewButtons).forEach(b => b?.classList.remove('active'));
+                    btn.classList.add('active');
+                    Store.view = key;
+                    Renderer.renderAll();
+                });
+            });
         });
     </script>
 </body>
