@@ -524,32 +524,41 @@
         function updateView(data) {
             if (!data) return;
 
+            const cpuVal = data.cpu ?? 0;
+            const ramVal = data.ram ?? 0;
+            const diskVal = data.disk ?? 0;
+            const netIn = data.net_in ?? data.netIn ?? 0;
+            const netOut = data.net_out ?? data.netOut ?? 0;
+            const trafficUsed = data.traffic_used ?? data.trafficUsed ?? 0;
+            const bandwidthLimit = data.bandwidth_limit;
+
             // 更新仪表盘
             if (gauges.cpu) {
-                gauges.cpu.setOption({ series: [{ data: [{ value: data.cpu }] }] });
-                document.getElementById('val-cpu').innerText = Math.round(data.cpu);
+                gauges.cpu.setOption({ series: [{ data: [{ value: cpuVal }] }] });
+                document.getElementById('val-cpu').innerText = Math.round(cpuVal);
             }
             if (gauges.ram) {
-                gauges.ram.setOption({ series: [{ data: [{ value: data.ram }] }] });
-                document.getElementById('val-ram').innerText = Math.round(data.ram);
+                gauges.ram.setOption({ series: [{ data: [{ value: ramVal }] }] });
+                document.getElementById('val-ram').innerText = Math.round(ramVal);
             }
             if (gauges.disk) {
-                gauges.disk.setOption({ series: [{ data: [{ value: data.disk }] }] });
-                document.getElementById('val-disk').innerText = Math.round(data.disk);
+                gauges.disk.setOption({ series: [{ data: [{ value: diskVal }] }] });
+                document.getElementById('val-disk').innerText = Math.round(diskVal);
             }
 
-            document.getElementById('val-net-in').innerText = (data.netIn||0).toFixed(1);
-            document.getElementById('val-net-out').innerText = (data.netOut||0).toFixed(1);
-            document.getElementById('bar-net-in').style.width = Math.min(100, (data.netIn/100)*100) + '%';
-            document.getElementById('bar-net-out').style.width = Math.min(100, (data.netOut/100)*100) + '%';
-            document.getElementById('traffic-used-val').innerText = (data.trafficUsed||0).toFixed(2) + ' GB';
+            document.getElementById('val-net-in').innerText = netIn.toFixed(1);
+            document.getElementById('val-net-out').innerText = netOut.toFixed(1);
+            document.getElementById('bar-net-in').style.width = Math.min(100, (netIn/100)*100) + '%';
+            document.getElementById('bar-net-out').style.width = Math.min(100, (netOut/100)*100) + '%';
+            document.getElementById('traffic-used-val').innerText = trafficUsed.toFixed(2) + ' GB';
+            document.getElementById('traffic-limit-val').innerText = bandwidthLimit === 'unlimited' ? '无限制' : (bandwidthLimit ? bandwidthLimit + ' GB' : '--');
 
             // 文本信息
             document.getElementById('server-name').innerText = data.name;
-            document.getElementById('uptime-display').innerText = data.uptime;
-            document.getElementById('loc-display').innerText = data.loc;
-            document.getElementById('type-display').innerText = data.type;
-            document.getElementById('price-display').innerText = data.price;
+            document.getElementById('uptime-display').innerText = data.uptime || '--';
+            document.getElementById('loc-display').innerText = data.loc || '--';
+            document.getElementById('type-display').innerText = data.type || '--';
+            document.getElementById('price-display').innerText = data.price || '--';
             document.getElementById('os-icon').src = `https://cdn.simpleicons.org/${getOsSlug(data.os)}`;
             
             // Tags
@@ -563,7 +572,7 @@
             const nowStr = new Date().toLocaleTimeString();
 
             // 更新实时图表 (Buffer)
-            buffers.cpu.time.push(nowStr); buffers.cpu.val.push(data.cpu);
+            buffers.cpu.time.push(nowStr); buffers.cpu.val.push(cpuVal);
             if(buffers.cpu.time.length > MAX_BUFFER) { buffers.cpu.time.shift(); buffers.cpu.val.shift(); }
             
             const cpuBtn = document.querySelector('#ctrl-cpu .filter-btn.active');
@@ -571,7 +580,7 @@
                 charts.cpu.setOption({ xAxis: { data: buffers.cpu.time }, series: [{ data: buffers.cpu.val }] });
             }
 
-            buffers.net.time.push(nowStr); buffers.net.in.push(data.netIn); buffers.net.out.push(data.netOut);
+            buffers.net.time.push(nowStr); buffers.net.in.push(netIn); buffers.net.out.push(netOut);
             if(buffers.net.time.length > MAX_BUFFER) { buffers.net.time.shift(); buffers.net.in.shift(); buffers.net.out.shift(); }
             
             const netBtn = document.querySelector('#ctrl-net .filter-btn.active');
@@ -627,12 +636,12 @@
                 }
             }
 
-            if (charts.traffic) {
-                charts.traffic.setOption({
-                    xAxis: { data: ['当月'] },
-                    series: [{ data: [data.trafficUsed||0] }]
-                });
-            }
+                if (charts.traffic) {
+                    charts.traffic.setOption({
+                        xAxis: { data: ['当月'] },
+                        series: [{ data: [trafficUsed||0] }]
+                    });
+                }
         }
 
         function getOsSlug(os) {

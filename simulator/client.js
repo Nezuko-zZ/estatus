@@ -2,36 +2,36 @@ const axios = require('axios');
 
 // 模拟节点配置
 const NODES = [
-    { 
-        id: 'hk-01', name: 'HK-Premium-CN2', loc: 'Hong Kong', code: 'hk', type: 'KVM', os: 'debian', bandwidth_limit: 1000, price: '$19.90/mo',
-        tags: [{text: 'CN2 GIA', color: 'blue'}, {text: 'SSD', color: 'gray'}] 
+    {
+        id: 'hk-01', name: 'HK-Premium-CN2', loc: 'Hong Kong', code: 'hk', type: 'KVM', os: 'debian', bandwidth_limit: 1000, price: '$19.90/mo', lat: 22.3193, lng: 114.1694,
+        tags: [{text: 'CN2 GIA', color: 'blue'}, {text: 'SSD', color: 'gray'}]
     },
-    { 
-        id: 'us-la', name: 'US-LosAngeles-GIA', loc: 'United States', code: 'us', type: 'Dedicated', os: 'ubuntu', bandwidth_limit: 'unlimited', price: '$59.00/mo',
+    {
+        id: 'us-la', name: 'US-LosAngeles-GIA', loc: 'United States', code: 'us', type: 'Dedicated', os: 'ubuntu', bandwidth_limit: 'unlimited', price: '$59.00/mo', lat: 34.0522, lng: -118.2437,
         tags: [{text: 'GIA', color: 'blue'}, {text: '10Gbps', color: 'purple'}, {text: 'Anti-DDoS', color: 'green'}]
     },
-    { 
-        id: 'jp-tyo', name: 'JP-Tokyo-Softbank', loc: 'Japan', code: 'jp', type: 'KVM', os: 'centos', bandwidth_limit: 2000, price: '$24.50/mo',
+    {
+        id: 'jp-tyo', name: 'JP-Tokyo-Softbank', loc: 'Japan', code: 'jp', type: 'KVM', os: 'centos', bandwidth_limit: 2000, price: '$24.50/mo', lat: 35.6762, lng: 139.6503,
         tags: [{text: 'Softbank', color: 'yellow'}, {text: 'Native IP', color: 'green'}]
     },
-    { 
-        id: 'sg-aws', name: 'SG-AWS-Direct', loc: 'Singapore', code: 'sg', type: 'KVM', os: 'amazonlinux', bandwidth_limit: 500, price: '$8.00/mo',
+    {
+        id: 'sg-aws', name: 'SG-AWS-Direct', loc: 'Singapore', code: 'sg', type: 'KVM', os: 'amazonlinux', bandwidth_limit: 500, price: '$8.00/mo', lat: 1.3521, lng: 103.8198,
         tags: [{text: 'AWS', color: 'orange'}, {text: 'Streaming', color: 'red'}]
     },
-    { 
-        id: 'de-fra', name: 'DE-Frankfurt-9929', loc: 'Germany', code: 'de', type: 'KVM', os: 'debian', bandwidth_limit: 'unlimited', price: '$12.00/mo',
+    {
+        id: 'de-fra', name: 'DE-Frankfurt-9929', loc: 'Germany', code: 'de', type: 'KVM', os: 'debian', bandwidth_limit: 'unlimited', price: '$12.00/mo', lat: 50.1109, lng: 8.6821,
         tags: [{text: 'CU 9929', color: 'indigo'}, {text: 'HDD', color: 'gray'}]
     },
-    { 
-        id: 'uk-lon', name: 'UK-London-Linenode', loc: 'United Kingdom', code: 'gb', type: 'KVM', os: 'ubuntu', bandwidth_limit: 1000, price: '$10.00/mo',
+    {
+        id: 'uk-lon', name: 'UK-London-Linenode', loc: 'United Kingdom', code: 'gb', type: 'KVM', os: 'ubuntu', bandwidth_limit: 1000, price: '$10.00/mo', lat: 51.5074, lng: -0.1278,
         tags: [{text: 'BGP', color: 'gray'}, {text: 'Low Ping', color: 'green'}]
     },
-    { 
-        id: 'kr-sel', name: 'KR-Seoul-Oracle', loc: 'South Korea', code: 'kr', type: 'ARM', os: 'oracle', bandwidth_limit: 'unlimited', price: '$0.00/mo',
+    {
+        id: 'kr-sel', name: 'KR-Seoul-Oracle', loc: 'South Korea', code: 'kr', type: 'ARM', os: 'oracle', bandwidth_limit: 'unlimited', price: '$0.00/mo', lat: 37.5665, lng: 126.9780,
         tags: [{text: 'Oracle Cloud', color: 'red'}, {text: 'ARM', color: 'orange'}]
     },
-    { 
-        id: 'cn-sha', name: 'CN-Shanghai-BGP', loc: 'China', code: 'cn', type: 'BareMetal', os: 'windows', bandwidth_limit: 5000, price: '¥499.00/mo',
+    {
+        id: 'cn-sha', name: 'CN-Shanghai-BGP', loc: 'China', code: 'cn', type: 'BareMetal', os: 'windows', bandwidth_limit: 5000, price: '¥499.00/mo', lat: 31.2304, lng: 121.4737,
         tags: [{text: 'BGP', color: 'blue'}, {text: 'High Speed', color: 'purple'}, {text: 'No-UDP', color: 'gray'}]
     },
 ];
@@ -83,10 +83,12 @@ async function reportData() {
             cpu: cache.cpu,
             ram: ram,
             disk: 45,
-            netIn: netIn,
-            netOut: netOut,
-            trafficUsed: cache.trafficUsed,
-            pingData: pingData
+            net_in: netIn,
+            net_out: netOut,
+            traffic_used: cache.trafficUsed,
+            pingData: pingData,
+            lat: node.lat,
+            lng: node.lng
         };
 
         try {
