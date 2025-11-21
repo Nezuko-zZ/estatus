@@ -107,48 +107,68 @@
 
     <!-- 主内容 -->
     <main class="flex-grow container mx-auto px-4 py-6 space-y-6">
-        <!-- 顶部汇总筛选 -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <button data-filter="all" class="status-tab active glass-panel rounded-xl p-4 flex items-center justify-between transition-colors">
-                <div>
-                    <div class="text-xs uppercase text-slate-400">全部节点</div>
-                    <div class="text-2xl font-bold text-white count" id="count-all-top">0</div>
+        <!-- 顶部汇总筛选与流量 -->
+        <div class="flex flex-col lg:flex-row gap-4">
+            <div class="glass-panel rounded-xl p-4 flex-1">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <div class="text-xs uppercase text-slate-400">节点筛选</div>
+                        <div class="text-sm text-slate-200">全部 / 在线 / 离线</div>
+                    </div>
+                    <span class="px-2 py-1 rounded-full text-[10px] bg-slate-800 text-slate-400 border border-white/5">点击切换</span>
                 </div>
-                <div class="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300"><i class="ti ti-dots"></i></div>
-            </button>
-            <button data-filter="online" class="status-tab glass-panel rounded-xl p-4 flex items-center justify-between transition-colors">
-                <div>
-                    <div class="text-xs uppercase text-green-300/80">在线</div>
-                    <div class="text-2xl font-bold text-green-300 count" id="count-online-top">0</div>
+                <div class="flex flex-wrap gap-2">
+                    <button data-filter="all" class="status-tab active flex-1 min-w-[120px] rounded-lg px-4 py-3 flex items-center justify-between transition-colors">
+                        <div>
+                            <div class="text-[10px] uppercase text-slate-400">全部节点</div>
+                            <div class="text-xl font-bold text-white count" id="count-all-top">0</div>
+                        </div>
+                        <div class="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300"><i class="ti ti-dots"></i></div>
+                    </button>
+                    <button data-filter="online" class="status-tab flex-1 min-w-[120px] rounded-lg px-4 py-3 flex items-center justify-between transition-colors">
+                        <div>
+                            <div class="text-[10px] uppercase text-green-300/80">在线</div>
+                            <div class="text-xl font-bold text-green-300 count" id="count-online-top">0</div>
+                        </div>
+                        <div class="w-8 h-8 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-300"><i class="ti ti-wifi"></i></div>
+                    </button>
+                    <button data-filter="offline" class="status-tab flex-1 min-w-[120px] rounded-lg px-4 py-3 flex items-center justify-between transition-colors">
+                        <div>
+                            <div class="text-[10px] uppercase text-amber-300/80">离线</div>
+                            <div class="text-xl font-bold text-amber-200 count" id="count-offline-top">0</div>
+                        </div>
+                        <div class="w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-200"><i class="ti ti-plug-off"></i></div>
+                    </button>
                 </div>
-                <div class="w-10 h-10 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-300"><i class="ti ti-wifi"></i></div>
-            </button>
-            <button data-filter="offline" class="status-tab glass-panel rounded-xl p-4 flex items-center justify-between transition-colors">
-                <div>
-                    <div class="text-xs uppercase text-amber-300/80">离线</div>
-                    <div class="text-2xl font-bold text-amber-200 count" id="count-offline-top">0</div>
+            </div>
+            <div class="glass-panel rounded-xl p-4 flex-1">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-xs uppercase text-slate-400">实时带宽与月度流量</div>
+                    <span class="px-2 py-1 rounded-full text-[10px] bg-blue-500/10 text-blue-300 border border-blue-500/20">Live</span>
                 </div>
-                <div class="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-200"><i class="ti ti-plug-off"></i></div>
-            </button>
-        </div>
-
-        <!-- 统计卡片 -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="glass-panel rounded-xl p-4 flex items-center justify-between">
-                <div><div class="text-slate-400 text-xs font-medium uppercase mb-1">在线节点</div><div class="flex items-baseline gap-2"><span class="text-2xl font-bold text-white" id="stat-online">0</span><span class="text-sm text-slate-500">/ <span id="stat-total">0</span></span></div></div>
-                <div class="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><i class="ti ti-server"></i></div>
-            </div>
-            <div class="glass-panel rounded-xl p-4 flex items-center justify-between">
-                <div><div class="text-slate-400 text-xs font-medium uppercase mb-1">实时下载</div><div class="flex items-baseline gap-1"><span class="text-2xl font-bold text-white tabular-nums" id="stat-down-speed">0.0</span><span class="text-xs text-slate-500">Mbps</span></div></div>
-                <div class="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400"><i class="ti ti-arrow-down"></i></div>
-            </div>
-            <div class="glass-panel rounded-xl p-4 flex items-center justify-between">
-                <div><div class="text-slate-400 text-xs font-medium uppercase mb-1">实时上传</div><div class="flex items-baseline gap-1"><span class="text-2xl font-bold text-white tabular-nums" id="stat-up-speed">0.0</span><span class="text-xs text-slate-500">Mbps</span></div></div>
-                <div class="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400"><i class="ti ti-arrow-up"></i></div>
-            </div>
-            <div class="glass-panel rounded-xl p-4 flex items-center justify-between">
-                <div><div class="text-slate-400 text-xs font-medium uppercase mb-1">总流量 (月)</div><div class="flex items-baseline gap-1"><span class="text-2xl font-bold text-white" id="stat-traffic">0</span><span class="text-xs text-slate-500">TB</span></div></div>
-                <div class="h-10 w-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400"><i class="ti ti-chart-pie"></i></div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="rounded-lg bg-slate-900/50 border border-white/5 p-3 flex items-center justify-between">
+                        <div>
+                            <div class="text-[11px] text-slate-400">实时下载</div>
+                            <div class="flex items-baseline gap-1"><span class="text-xl font-bold text-white tabular-nums" id="stat-down-speed">0.0</span><span class="text-xs text-slate-500">Mbps</span></div>
+                        </div>
+                        <div class="w-9 h-9 rounded-lg bg-emerald-500/15 text-emerald-300 flex items-center justify-center"><i class="ti ti-arrow-down"></i></div>
+                    </div>
+                    <div class="rounded-lg bg-slate-900/50 border border-white/5 p-3 flex items-center justify-between">
+                        <div>
+                            <div class="text-[11px] text-slate-400">实时上传</div>
+                            <div class="flex items-baseline gap-1"><span class="text-xl font-bold text-white tabular-nums" id="stat-up-speed">0.0</span><span class="text-xs text-slate-500">Mbps</span></div>
+                        </div>
+                        <div class="w-9 h-9 rounded-lg bg-purple-500/15 text-purple-300 flex items-center justify-center"><i class="ti ti-arrow-up"></i></div>
+                    </div>
+                    <div class="rounded-lg bg-slate-900/50 border border-white/5 p-3 flex items-center justify-between">
+                        <div>
+                            <div class="text-[11px] text-slate-400">总流量 (月)</div>
+                            <div class="flex items-baseline gap-1"><span class="text-xl font-bold text-white" id="stat-traffic">0</span><span class="text-xs text-slate-500">TB</span></div>
+                        </div>
+                        <div class="w-9 h-9 rounded-lg bg-orange-500/15 text-orange-300 flex items-center justify-center"><i class="ti ti-chart-pie"></i></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -374,14 +394,18 @@
                 let pingClass = 'text-slate-400';
                 let pingTargetName = 'TCP';
                 if (s.pingData && s.pingData.length > 0) {
-                    const pingArr = (typeof s.pingData === 'string') ? JSON.parse(s.pingData) : s.pingData;
+                    const pingArrRaw = (typeof s.pingData === 'string') ? JSON.parse(s.pingData) : s.pingData;
+                    const pingArr = Array.isArray(pingArrRaw) ? pingArrRaw : [];
                     if(pingArr.length > 0) {
                         const p = pingArr[0];
-                        pingDisplay = p.ms + ' ms';
+                        const pingVal = Number(p.ms);
+                        pingDisplay = (isNaN(pingVal) ? '--' : pingVal) + ' ms';
                         pingTargetName = p.target;
-                        if (p.ms < 50) pingClass = 'text-green-400';
-                        else if (p.ms < 150) pingClass = 'text-yellow-400';
-                        else pingClass = 'text-red-400';
+                        if (!isNaN(pingVal)) {
+                            if (pingVal < 50) pingClass = 'text-green-400';
+                            else if (pingVal < 150) pingClass = 'text-yellow-400';
+                            else pingClass = 'text-red-400';
+                        }
                     }
                 } else if (typeof s.pingData === 'undefined' && Store.servers[s.id]?.ping) {
                      pingDisplay = Store.servers[s.id].ping + ' ms';
@@ -401,32 +425,30 @@
                 const lossBars = Store.servers[s.id]?.packetHistory.map(v => `<div class="chart-bar flex-1 w-1 rounded-sm ${v<1?'bg-green-500':'bg-red-500'}" style="height:${Math.min(100, v*10)}%"></div>`).join('') || '';
 
                 if (viewMode === 'list') {
+                    const trafficLine = isUnl ? '不限流量' : `${this.formatBytes(trafficUsed)} / ${limitText} (${Math.round(pct)}%)`;
+
                     return `<div class="glass-panel rounded-xl px-4 py-3 transition-all hover:border-slate-600/50 group relative overflow-hidden" id="card-${s.id}">
                         <div class="absolute -right-6 -bottom-6 opacity-[0.04] pointer-events-none"><img src="${flagUrl}" class="w-32 grayscale"/></div>
                         <div class="flex flex-col gap-2 relative z-10">
                             <div class="flex items-center gap-3 flex-wrap">
                                 <div class="w-10 h-7 rounded bg-slate-800 shadow-sm overflow-hidden border border-slate-700/50"><img src="${flagUrl}" class="w-full h-full object-cover"></div>
-                                <div class="min-w-[200px]">
+                                <div class="flex flex-col gap-1 min-w-[180px]">
                                     <a href="/server/${s.id}" class="hover:text-blue-400 transition-colors"><h4 class="font-bold text-sm text-white flex items-center gap-2">${s.name}<i class="ti ti-external-link text-xs opacity-50"></i></h4></a>
-                                    <div class="text-xs text-slate-500 flex items-center gap-2 mt-1"><img src="${osIcon}" class="w-3 h-3" onerror="this.src='https://cdn.simpleicons.org/linux';this.onerror=null;"> <span>${s.loc}</span><span class="w-0.5 h-2 bg-slate-700 rounded-full"></span><span class="${s.updated_at > (Date.now()/1000 - 60) ? 'text-emerald-400' : 'text-red-400'}">${s.updated_at > (Date.now()/1000 - 60) ? '在线' : '离线'}</span></div>
+                                    <div class="text-xs text-slate-500 flex items-center gap-2"><img src="${osIcon}" class="w-3 h-3" onerror="this.src='https://cdn.simpleicons.org/linux';this.onerror=null;"> <span>${s.loc}</span><span class="w-0.5 h-2 bg-slate-700 rounded-full"></span><span class="${s.updated_at > (Date.now()/1000 - 60) ? 'text-emerald-400' : 'text-red-400'}">${s.updated_at > (Date.now()/1000 - 60) ? '在线' : '离线'}</span></div>
                                 </div>
                                 <div class="flex items-center gap-2 text-xs text-slate-400"><i class="ti ti-clock"></i><span>${s.uptime || 'N/A'}</span></div>
-                                <div class="flex items-center gap-2 text-xs text-slate-400"><i class="ti ti-coin text-yellow-400"></i><span>${s.price}</span></div>
                                 <div class="flex items-center gap-2 text-xs text-slate-400"><i class="ti ti-calendar-event text-blue-400"></i><span>${s.expire_date}</span></div>
+                                <div class="flex items-center gap-2 text-xs text-amber-300"><i class="ti ti-coin"></i><span>${s.price || '--'}</span></div>
                                 <div class="ml-auto text-right">
                                     <div class="text-[10px] text-slate-400">Ping (${pingTargetName})</div>
                                     <div class="text-sm font-mono ${pingClass}">${pingDisplay}</div>
                                 </div>
                             </div>
-                            <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                                <div class="flex items-center gap-2"><span class="text-slate-500">CPU</span><div class="w-32 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500" style="width:${cpu}%"></div></div><span class="text-slate-200 font-mono">${Math.round(cpu)}%</span></div>
-                                <div class="flex items-center gap-2"><span class="text-slate-500">RAM</span><div class="w-32 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-purple-500" style="width:${ram}%"></div></div><span class="text-slate-200 font-mono">${Math.round(ram)}%</span></div>
-                                <div class="flex items-center gap-2"><span class="text-slate-500">流量</span><div class="w-40 h-2 bg-slate-800 rounded-full overflow-hidden"><div class="h-full ${isUnl ? 'progress-bar-unlimited' : barClass}" style="width:${isUnl ? '100%' : pct+'%'}"></div></div><span class="text-slate-200 font-mono">${this.formatBytes(trafficUsed)} / ${limitText}</span></div>
-                                <div class="flex items-center gap-3 text-slate-300 ml-auto"><span class="font-mono text-sm">⬇ ${netIn.toFixed(1)} Mbps</span><span class="font-mono text-sm">⬆ ${netOut.toFixed(1)} Mbps</span></div>
-                            </div>
-                            <div class="flex items-center justify-between gap-3 flex-wrap">
-                                <div class="flex items-end gap-[1px] h-6">${latBars}</div>
-                                <div class="flex flex-wrap gap-1 ml-auto">${this.renderTags(s.tags)}</div>
+                            <div class="flex flex-wrap items-center gap-3 text-xs text-slate-300">
+                                <div class="flex items-center gap-1"><span class="text-slate-500">CPU</span><span class="font-mono text-white">${Math.round(cpu)}%</span></div>
+                                <div class="flex items-center gap-1"><span class="text-slate-500">RAM</span><span class="font-mono text-white">${Math.round(ram)}%</span></div>
+                                <div class="flex items-center gap-1"><span class="text-slate-500">流量</span><span class="font-mono text-white">${trafficLine}</span></div>
+                                <div class="flex items-center gap-3 text-slate-200 ml-auto"><span class="font-mono text-sm">⬇ ${netIn.toFixed(1)} Mbps</span><span class="font-mono text-sm">⬆ ${netOut.toFixed(1)} Mbps</span></div>
                             </div>
                         </div>
                     </div>`;
