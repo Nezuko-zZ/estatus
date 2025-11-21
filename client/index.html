@@ -63,6 +63,20 @@
         .view-btn { width: 36px; height: 36px; border-radius: 0.75rem; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; color: #cbd5e1; transition: all 0.2s ease; }
         .view-btn:hover { color: white; border-color: rgba(255,255,255,0.1); }
         .view-btn.active { background: #2563eb; color: white; border-color: rgba(59,130,246,0.6); box-shadow: 0 8px 20px -8px rgba(59,130,246,0.7); }
+
+        .status-tab { border: 1px solid rgba(255,255,255,0.08); background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(14, 116, 144, 0.08)); }
+        .status-tab.active { border-color: rgba(59,130,246,0.5); box-shadow: 0 6px 20px -8px rgba(59,130,246,0.8); background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(14, 116, 144, 0.18)); }
+        .status-tab .count { font-feature-settings: 'tnum'; }
+
+        .pill-select { appearance: none; background: rgba(15,23,42,0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; padding: 0.55rem 2.5rem 0.55rem 0.9rem; color: #e2e8f0; outline: none; cursor: pointer; }
+        .pill-select:focus { border-color: rgba(59,130,246,0.5); box-shadow: 0 0 0 4px rgba(59,130,246,0.15); }
+        .pill-select-wrapper { position: relative; }
+        .pill-select-wrapper i { position: absolute; right: 0.8rem; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
+
+        .country-chip { border: 1px solid rgba(255,255,255,0.08); background: rgba(30,41,59,0.7); color: #e2e8f0; padding: 0.35rem 0.75rem; border-radius: 999px; font-size: 12px; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s ease; }
+        .country-chip img { width: 18px; height: 12px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
+        .country-chip:hover { border-color: rgba(59,130,246,0.5); color: #fff; transform: translateY(-1px); }
+        .country-chip.active { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.6); color: #fff; box-shadow: 0 10px 25px -14px rgba(59,130,246,0.7); }
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
@@ -93,6 +107,31 @@
 
     <!-- 主内容 -->
     <main class="flex-grow container mx-auto px-4 py-6 space-y-6">
+        <!-- 顶部汇总筛选 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button data-filter="all" class="status-tab active glass-panel rounded-xl p-4 flex items-center justify-between transition-colors">
+                <div>
+                    <div class="text-xs uppercase text-slate-400">全部节点</div>
+                    <div class="text-2xl font-bold text-white count" id="count-all-top">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300"><i class="ti ti-dots"></i></div>
+            </button>
+            <button data-filter="online" class="status-tab glass-panel rounded-xl p-4 flex items-center justify-between transition-colors">
+                <div>
+                    <div class="text-xs uppercase text-green-300/80">在线</div>
+                    <div class="text-2xl font-bold text-green-300 count" id="count-online-top">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-300"><i class="ti ti-wifi"></i></div>
+            </button>
+            <button data-filter="offline" class="status-tab glass-panel rounded-xl p-4 flex items-center justify-between transition-colors">
+                <div>
+                    <div class="text-xs uppercase text-amber-300/80">离线</div>
+                    <div class="text-2xl font-bold text-amber-200 count" id="count-offline-top">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-200"><i class="ti ti-plug-off"></i></div>
+            </button>
+        </div>
+
         <!-- 统计卡片 -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="glass-panel rounded-xl p-4 flex items-center justify-between">
@@ -126,22 +165,18 @@
 
         <!-- 节点列表 -->
         <div class="glass-panel rounded-xl p-4 border border-white/10 space-y-4">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div class="flex flex-wrap items-center gap-2">
-                    <button data-filter="all" class="filter-chip active">总览 (<span id="count-all">0</span>)</button>
-                    <button data-filter="online" class="filter-chip">在线 (<span id="count-online">0</span>)</button>
-                    <button data-filter="offline" class="filter-chip">离线 (<span id="count-offline">0</span>)</button>
-                </div>
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div class="flex flex-wrap items-center gap-2" id="country-chips"></div>
                 <div class="flex flex-wrap items-center gap-3 text-sm text-slate-300">
-                    <label class="flex items-center gap-2 bg-slate-900/60 border border-white/10 px-3 py-2 rounded-lg">
-                        <span class="text-xs text-slate-400">排序</span>
-                        <select id="sort-select" class="bg-transparent outline-none">
-                            <option value="order">序号</option>
-                            <option value="name">名称</option>
-                            <option value="country">国家</option>
-                            <option value="uptime">在线时间</option>
+                    <div class="pill-select-wrapper">
+                        <select id="sort-select" class="pill-select pr-9">
+                            <option value="order">按序号</option>
+                            <option value="name">按名称</option>
+                            <option value="country">按国家</option>
+                            <option value="uptime">按在线时间</option>
                         </select>
-                    </label>
+                        <i class="ti ti-chevron-down"></i>
+                    </div>
                     <div class="flex items-center gap-2 bg-slate-900/60 border border-white/10 px-2 py-2 rounded-lg">
                         <button id="view-grid" class="view-btn active" title="卡片视图"><i class="ti ti-layout-grid"></i></button>
                         <button id="view-list" class="view-btn" title="列表视图"><i class="ti ti-list-details"></i></button>
@@ -155,21 +190,29 @@
     <script>
         const Store = {
             servers: {}, isWsConnected: false, globe: null, globeArcs: {},
-            sortKey: 'order', filter: 'all', view: 'grid', siteName: 'estatus',
+            sortKey: 'order', filter: 'all', country: 'all', view: 'grid', siteName: 'estatus',
             
             // 统一更新入口
             updateServerData(id, data) {
+                const normalized = {
+                    net_in: data.net_in ?? data.netIn ?? 0,
+                    net_out: data.net_out ?? data.netOut ?? 0,
+                    traffic_used: data.traffic_used ?? data.trafficUsed ?? 0,
+                    uptime: data.uptime || '--',
+                    pingData: data.pingData
+                };
                 if (!this.servers[id]) {
-                    this.servers[id] = { 
-                        ...data, 
+                    this.servers[id] = {
+                        ...data,
+                        ...normalized,
                         // 初始化历史数组 (用于图表)
-                        latencyHistory: new Array(24).fill(0), 
-                        packetHistory: new Array(24).fill(0) 
+                        latencyHistory: new Array(24).fill(0),
+                        packetHistory: new Array(24).fill(0)
                     };
                 } else {
                     const old = this.servers[id];
                     // 合并新数据
-                    this.servers[id] = { ...old, ...data };
+                    this.servers[id] = { ...old, ...data, ...normalized };
                     
                     // 维护图表历史数据 (使用最新的 Ping 数据更新历史)
                     const s = this.servers[id];
@@ -271,15 +314,24 @@
                 };
                 ['all','online','offline'].forEach(k => {
                     const el = document.getElementById(`count-${k}`);
+                    const elTop = document.getElementById(`count-${k}-top`);
                     if (el) el.textContent = counts[k];
+                    if (elTop) elTop.textContent = counts[k];
                 });
+
+                const countryWrap = document.getElementById('country-chips');
+                if (countryWrap) {
+                    const countries = Array.from(new Map(servers.map(s => [s.code, s.loc])).entries());
+                    countryWrap.innerHTML = [`<button data-country="all" class="country-chip ${Store.country === 'all' ? 'active' : ''}"><i class="ti ti-world text-slate-300"></i>全部</button>`]
+                        .concat(countries.map(([code, name]) => `<button data-country="${code}" class="country-chip ${Store.country === code ? 'active' : ''}"><img src="https://flagcdn.com/w40/${code}.png" alt="${name}"><span>${name}</span></button>`)).join('');
+                }
 
                 const grid = document.getElementById('server-grid');
                 if (grid) {
                     const filtered = servers.filter(s => {
-                        if (Store.filter === 'online') return s.updated_at > nowTs - 60;
-                        if (Store.filter === 'offline') return s.updated_at <= nowTs - 60;
-                        return true;
+                        const matchStatus = Store.filter === 'online' ? s.updated_at > nowTs - 60 : Store.filter === 'offline' ? s.updated_at <= nowTs - 60 : true;
+                        const matchCountry = Store.country === 'all' ? true : s.code === Store.country;
+                        return matchStatus && matchCountry;
                     });
                     const sorted = filtered.sort((a,b)=>{
                         if (Store.sortKey === 'name') return (a.name||'').localeCompare(b.name||'');
@@ -301,15 +353,15 @@
                 return `https://cdn.simpleicons.org/${slug}`; 
             },
             formatBytes(gb) { return gb >= 1000 ? (gb/1000).toFixed(2)+' TB' : gb.toFixed(2)+' GB'; },
-            renderTags(tags) {
+            renderTags(tags, extraClass = '') {
                 if (!tags) return '';
                 let parsedTags = [];
-                try { 
-                    parsedTags = (typeof tags === 'string') ? JSON.parse(tags) : tags; 
+                try {
+                    parsedTags = (typeof tags === 'string') ? JSON.parse(tags) : tags;
                 } catch(e) { parsedTags = []; }
 
                 const colors = { blue: "bg-blue-500/10 text-blue-300 border-blue-500/20", green: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20", red: "bg-red-500/10 text-red-300 border-red-500/20", purple: "bg-purple-500/10 text-purple-300 border-purple-500/20", gray: "bg-slate-500/10 text-slate-300 border-slate-500/20", orange: "bg-orange-500/10 text-orange-300 border-orange-500/20", indigo: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20" };
-                return `<div class="flex flex-wrap gap-1.5 mb-4 relative z-10">${parsedTags.map(t => `<span class="px-2 py-0.5 rounded text-[10px] border ${colors[t.color]||colors.gray} font-medium">${t.text}</span>`).join('')}</div>`;
+                return `<div class="flex flex-wrap gap-1.5 ${extraClass} relative z-10">${parsedTags.map(t => `<span class="px-2 py-0.5 rounded text-[10px] border ${colors[t.color]||colors.gray} font-medium">${t.text}</span>`).join('')}</div>`;
             },
 
             createServerCardHTML(s, viewMode = 'grid') {
@@ -318,15 +370,13 @@
                 const limitText = s.bandwidth_limit === 'unlimited' ? 'Unlimited' : this.formatBytes(Number(s.bandwidth_limit));
                 const isUnl = s.bandwidth_limit === 'unlimited';
 
-                // Ping 显示
                 let pingDisplay = '-- ms';
                 let pingClass = 'text-slate-400';
                 let pingTargetName = 'TCP';
                 if (s.pingData && s.pingData.length > 0) {
-                    // 兼容 Postgres 返回的 JSON 数组可能已经是对象了
                     const pingArr = (typeof s.pingData === 'string') ? JSON.parse(s.pingData) : s.pingData;
                     if(pingArr.length > 0) {
-                        const p = pingArr[0]; 
+                        const p = pingArr[0];
                         pingDisplay = p.ms + ' ms';
                         pingTargetName = p.target;
                         if (p.ms < 50) pingClass = 'text-green-400';
@@ -334,16 +384,15 @@
                         else pingClass = 'text-red-400';
                     }
                 } else if (typeof s.pingData === 'undefined' && Store.servers[s.id]?.ping) {
-                     // 兼容旧数据
                      pingDisplay = Store.servers[s.id].ping + ' ms';
                 }
-                
+
                 const cpu = s.cpu || 0;
                 const ram = s.ram || 0;
-                const netIn = s.net_in || 0; // Postgres 字段
-                const netOut = s.net_out || 0; // Postgres 字段
-                const trafficUsed = s.traffic_used || 0; // Postgres 字段
-                
+                const netIn = s.net_in || 0;
+                const netOut = s.net_out || 0;
+                const trafficUsed = s.traffic_used || 0;
+
                 let pct = 0;
                 if (!isUnl) pct = Math.min(100, (trafficUsed / Number(s.bandwidth_limit)) * 100);
                 const barClass = pct > 90 ? 'bg-red-500' : pct > 75 ? 'bg-yellow-500' : 'bg-cyan-500';
@@ -351,11 +400,39 @@
                 const latBars = Store.servers[s.id]?.latencyHistory.map(v => `<div class="chart-bar flex-1 w-1 rounded-sm ${v<50?'bg-green-500':v<150?'bg-yellow-500':'bg-red-500'}" style="height:${Math.min(100, v/2)}%"></div>`).join('') || '';
                 const lossBars = Store.servers[s.id]?.packetHistory.map(v => `<div class="chart-bar flex-1 w-1 rounded-sm ${v<1?'bg-green-500':'bg-red-500'}" style="height:${Math.min(100, v*10)}%"></div>`).join('') || '';
 
-                const baseClass = viewMode === 'list'
-                    ? 'glass-panel rounded-xl p-4 transition-all hover:border-slate-600/50 group relative overflow-hidden flex flex-col'
-                    : 'glass-panel rounded-xl p-5 transition-all hover:border-slate-600/50 group relative overflow-hidden flex flex-col h-full';
+                if (viewMode === 'list') {
+                    return `<div class="glass-panel rounded-xl px-4 py-3 transition-all hover:border-slate-600/50 group relative overflow-hidden" id="card-${s.id}">
+                        <div class="absolute -right-6 -bottom-6 opacity-[0.04] pointer-events-none"><img src="${flagUrl}" class="w-32 grayscale"/></div>
+                        <div class="flex flex-col gap-2 relative z-10">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <div class="w-10 h-7 rounded bg-slate-800 shadow-sm overflow-hidden border border-slate-700/50"><img src="${flagUrl}" class="w-full h-full object-cover"></div>
+                                <div class="min-w-[200px]">
+                                    <a href="/server/${s.id}" class="hover:text-blue-400 transition-colors"><h4 class="font-bold text-sm text-white flex items-center gap-2">${s.name}<i class="ti ti-external-link text-xs opacity-50"></i></h4></a>
+                                    <div class="text-xs text-slate-500 flex items-center gap-2 mt-1"><img src="${osIcon}" class="w-3 h-3" onerror="this.src='https://cdn.simpleicons.org/linux';this.onerror=null;"> <span>${s.loc}</span><span class="w-0.5 h-2 bg-slate-700 rounded-full"></span><span class="${s.updated_at > (Date.now()/1000 - 60) ? 'text-emerald-400' : 'text-red-400'}">${s.updated_at > (Date.now()/1000 - 60) ? '在线' : '离线'}</span></div>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-slate-400"><i class="ti ti-clock"></i><span>${s.uptime || 'N/A'}</span></div>
+                                <div class="flex items-center gap-2 text-xs text-slate-400"><i class="ti ti-coin text-yellow-400"></i><span>${s.price}</span></div>
+                                <div class="flex items-center gap-2 text-xs text-slate-400"><i class="ti ti-calendar-event text-blue-400"></i><span>${s.expire_date}</span></div>
+                                <div class="ml-auto text-right">
+                                    <div class="text-[10px] text-slate-400">Ping (${pingTargetName})</div>
+                                    <div class="text-sm font-mono ${pingClass}">${pingDisplay}</div>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                                <div class="flex items-center gap-2"><span class="text-slate-500">CPU</span><div class="w-32 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500" style="width:${cpu}%"></div></div><span class="text-slate-200 font-mono">${Math.round(cpu)}%</span></div>
+                                <div class="flex items-center gap-2"><span class="text-slate-500">RAM</span><div class="w-32 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-purple-500" style="width:${ram}%"></div></div><span class="text-slate-200 font-mono">${Math.round(ram)}%</span></div>
+                                <div class="flex items-center gap-2"><span class="text-slate-500">流量</span><div class="w-40 h-2 bg-slate-800 rounded-full overflow-hidden"><div class="h-full ${isUnl ? 'progress-bar-unlimited' : barClass}" style="width:${isUnl ? '100%' : pct+'%'}"></div></div><span class="text-slate-200 font-mono">${this.formatBytes(trafficUsed)} / ${limitText}</span></div>
+                                <div class="flex items-center gap-3 text-slate-300 ml-auto"><span class="font-mono text-sm">⬇ ${netIn.toFixed(1)} Mbps</span><span class="font-mono text-sm">⬆ ${netOut.toFixed(1)} Mbps</span></div>
+                            </div>
+                            <div class="flex items-center justify-between gap-3 flex-wrap">
+                                <div class="flex items-end gap-[1px] h-6">${latBars}</div>
+                                <div class="flex flex-wrap gap-1 ml-auto">${this.renderTags(s.tags)}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                }
 
-                return `<div class="${baseClass}" id="card-${s.id}">
+                return `<div class="glass-panel rounded-xl p-5 transition-all hover:border-slate-600/50 group relative overflow-hidden flex flex-col h-full" id="card-${s.id}">
                     <div class="absolute -right-4 -bottom-4 opacity-[0.03] pointer-events-none"><img src="${flagUrl}" class="w-32 grayscale"/></div>
                     <div class="flex justify-between items-start mb-2 relative z-10">
                         <div class="flex items-center gap-3">
@@ -369,7 +446,7 @@
                         </div>
                         <div class="text-right"><div class="text-xs text-slate-400 mb-1">Ping (${pingTargetName})</div><div class="text-sm font-mono ${pingClass}">${pingDisplay}</div></div>
                     </div>
-                    ${this.renderTags(s.tags)}
+                    ${this.renderTags(s.tags, 'mb-4')}
                     <div class="space-y-2 mb-4 relative z-10">
                         <div><div class="flex justify-between text-xs mb-1"><span class="text-slate-500">CPU</span><span class="text-slate-300 font-mono">${Math.round(cpu)}%</span></div><div class="progress-track h-1.5 w-full"><div class="progress-bar bg-blue-500" style="width:${cpu}%"></div></div></div>
                         <div><div class="flex justify-between text-xs mb-1"><span class="text-slate-500">RAM</span><span class="text-slate-300 font-mono">${Math.round(ram)}%</span></div><div class="progress-track h-1.5 w-full"><div class="progress-bar bg-purple-500" style="width:${ram}%"></div></div></div>
@@ -380,6 +457,7 @@
                     <div class="mt-auto pt-3 border-t border-slate-700/30 relative z-10"><div class="grid grid-cols-2 gap-3 text-xs"><div class="flex items-center justify-center gap-2 text-slate-400 bg-slate-800/50 py-1.5 rounded"><i class="ti ti-calendar-event text-blue-400"></i><span>${s.expire_date}</span></div><div class="flex items-center justify-center gap-2 text-slate-400 bg-slate-800/50 py-1.5 rounded"><i class="ti ti-coin text-yellow-400"></i><span>${s.price}</span></div></div></div>
                 </div>`;
             },
+
             updateGlobeArcs() {
                 if (!this.globe) return;
                 const servers = Object.values(Store.servers);
@@ -450,14 +528,25 @@
             Store.init();
             Renderer.init();
 
-            document.querySelectorAll('.filter-chip').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    Store.filter = btn.getAttribute('data-filter');
+            const statusTabs = document.querySelectorAll('.status-tab');
+            statusTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    statusTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    Store.filter = tab.getAttribute('data-filter');
                     Renderer.renderAll();
                 });
             });
+
+            const countryWrap = document.getElementById('country-chips');
+            if (countryWrap) {
+                countryWrap.addEventListener('click', (e) => {
+                    const btn = e.target.closest('button[data-country]');
+                    if (!btn) return;
+                    Store.country = btn.getAttribute('data-country');
+                    Renderer.renderAll();
+                });
+            }
 
             const sortSel = document.getElementById('sort-select');
             if (sortSel) sortSel.addEventListener('change', (e) => {
