@@ -15,7 +15,10 @@
                         colors: {
                             dark: { bg: '#0f172a', card: '#1e293b', border: '#334155' }
                         },
-                        animation: { 'shimmer': 'shimmer 2s linear infinite' },
+                        animation: { 
+                            'shimmer': 'shimmer 2s linear infinite',
+                            'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                        },
                         keyframes: {
                             shimmer: {
                                 '0%': { backgroundPosition: '200% 0' },
@@ -49,7 +52,11 @@
         .progress-track { background-color: rgba(255, 255, 255, 0.1); border-radius: 999px; overflow: hidden; }
         .progress-bar { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
         .progress-bar-unlimited { width: 100% !important; background: linear-gradient(90deg, #3b82f6 25%, #a855f7 50%, #3b82f6 75%); background-size: 200% 100%; animation: shimmer 3s linear infinite; }
-        .chart-bar { width: 4px; height: 24px; border-radius: 2px; transition: all 0.3s ease; display: inline-block; margin-right: 1px; }
+        
+        /* 修复图表条样式：使用 flex-1 自适应宽度，不再使用固定宽度 */
+        .chart-bar { flex: 1; height: 100%; min-height: 4px; border-radius: 1px; transition: all 0.3s ease; opacity: 0.8; }
+        .chart-track { display: flex; align-items: flex-end; gap: 1px; height: 24px; width: 100%; background: rgba(0,0,0,0.2); padding: 1px; border-radius: 4px; }
+        
         .globe-flag-marker { width: 24px; border-radius: 2px; box-shadow: 0 0 6px rgba(0,0,0,0.8); pointer-events: none; transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,0.2); }
         
         #connection-status { position: fixed; bottom: 20px; right: 20px; z-index: 100; font-size: 12px; padding: 4px 8px; border-radius: 4px; background: rgba(0,0,0,0.5); color: #aaa; pointer-events: none; }
@@ -68,10 +75,24 @@
         .status-tab.active { border-color: rgba(59,130,246,0.5); box-shadow: 0 6px 20px -8px rgba(59,130,246,0.8); background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(14, 116, 144, 0.18)); }
         .status-tab .count { font-feature-settings: 'tnum'; }
 
-        .pill-select { appearance: none; background: rgba(15,23,42,0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; padding: 0.55rem 2.5rem 0.55rem 0.9rem; color: #e2e8f0; outline: none; cursor: pointer; }
-        .pill-select:focus { border-color: rgba(59,130,246,0.5); box-shadow: 0 0 0 4px rgba(59,130,246,0.15); }
+        /* 美化后的下拉菜单样式 */
+        .pill-select { 
+            appearance: none; 
+            background: rgba(30, 41, 59, 0.75); 
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.15); 
+            border-radius: 8px; 
+            padding: 0.4rem 2.2rem 0.4rem 0.8rem; 
+            color: #e2e8f0; 
+            outline: none; 
+            cursor: pointer; 
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .pill-select:hover { border-color: rgba(255,255,255,0.3); background: rgba(30, 41, 59, 0.9); }
+        .pill-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
         .pill-select-wrapper { position: relative; }
-        .pill-select-wrapper i { position: absolute; right: 0.8rem; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
+        .pill-select-wrapper i { position: absolute; right: 0.8rem; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 12px; }
 
         .country-chip { border: 1px solid rgba(255,255,255,0.08); background: rgba(30,41,59,0.7); color: #e2e8f0; padding: 0.35rem 0.75rem; border-radius: 999px; font-size: 12px; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s ease; }
         .country-chip img { width: 18px; height: 12px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
@@ -83,7 +104,6 @@
     <div class="bg-overlay"></div>
     <div id="connection-status" class="disconnected">● 连接中...</div>
 
-    <!-- 导航栏 -->
     <nav class="border-b border-white/10 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50 h-16 flex-none">
         <div class="container mx-auto px-4 h-full flex items-center justify-between">
             <div class="flex items-center gap-3">
@@ -92,7 +112,6 @@
                 <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20">PROBE</span>
             </div>
             <div class="flex items-center gap-4 text-sm">
-                <!-- 修复点1：添加了 system-time 元素 -->
                 <div class="hidden md:flex items-center gap-4 text-slate-300">
                     <span id="system-time" class="font-mono text-slate-400">00:00:00</span>
                     <div class="h-4 w-[1px] bg-slate-700"></div>
@@ -105,15 +124,12 @@
         </div>
     </nav>
 
-    <!-- 主内容 -->
     <main class="flex-grow container mx-auto px-4 py-6 space-y-6">
-        <!-- 顶部汇总筛选与流量 -->
         <div class="flex flex-col lg:flex-row gap-4">
             <div class="glass-panel rounded-xl p-4 flex-1">
                 <div class="flex items-center justify-between mb-3">
-                    <div>
+                    <div class="h-6 flex items-center">
                         <div class="text-xs uppercase text-slate-400">节点筛选</div>
-                        <div class="text-sm text-slate-200">全部 / 在线 / 离线</div>
                     </div>
                     <span class="px-2 py-1 rounded-full text-[10px] bg-slate-800 text-slate-400 border border-white/5">点击切换</span>
                 </div>
@@ -172,7 +188,6 @@
             </div>
         </div>
 
-        <!-- 3D 地球 -->
         <div class="glass-panel rounded-2xl overflow-hidden relative border border-white/10" style="height: 450px; z-index: 0;">
             <div id="globe-container" class="w-full h-full"></div>
             <div class="absolute top-4 left-4 z-10 pointer-events-none">
@@ -183,21 +198,20 @@
             </div>
         </div>
 
-        <!-- 节点列表 -->
         <div class="glass-panel rounded-xl p-4 border border-white/10 space-y-4">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div class="flex flex-wrap items-center gap-2" id="country-chips"></div>
                 <div class="flex flex-wrap items-center gap-3 text-sm text-slate-300">
                     <div class="pill-select-wrapper">
                         <select id="sort-select" class="pill-select pr-9">
-                            <option value="order">按序号</option>
+                            <option value="order">默认排序 (按序号)</option>
                             <option value="name">按名称</option>
                             <option value="country">按国家</option>
                             <option value="uptime">按在线时间</option>
                         </select>
                         <i class="ti ti-chevron-down"></i>
                     </div>
-                    <div class="flex items-center gap-2 bg-slate-900/60 border border-white/10 px-2 py-2 rounded-lg">
+                    <div class="flex items-center gap-2 bg-slate-900/60 border border-white/10 px-1 py-1 rounded-lg">
                         <button id="view-grid" class="view-btn active" title="卡片视图"><i class="ti ti-layout-grid"></i></button>
                         <button id="view-list" class="view-btn" title="列表视图"><i class="ti ti-list-details"></i></button>
                     </div>
@@ -212,7 +226,6 @@
             servers: {}, isWsConnected: false, globe: null, globeArcs: {},
             sortKey: 'order', filter: 'all', country: 'all', view: 'grid', siteName: 'estatus',
             
-            // 统一更新入口
             updateServerData(id, data) {
                 const normalized = {
                     net_in: data.net_in ?? data.netIn ?? 0,
@@ -225,21 +238,19 @@
                     this.servers[id] = {
                         ...data,
                         ...normalized,
-                        // 初始化历史数组 (用于图表)
                         latencyHistory: new Array(24).fill(0),
                         packetHistory: new Array(24).fill(0)
                     };
                 } else {
                     const old = this.servers[id];
-                    // 合并新数据
                     this.servers[id] = { ...old, ...data, ...normalized };
                     
-                    // 维护图表历史数据 (使用最新的 Ping 数据更新历史)
                     const s = this.servers[id];
                     if (data.pingData && data.pingData.length > 0) {
-                        const latestPing = data.pingData[0].ms; // 取第一个 Ping 目标的延迟
+                        const latestPing = data.pingData[0].ms; 
                         s.latencyHistory.shift(); s.latencyHistory.push(latestPing);
-                        s.packetHistory.shift(); s.packetHistory.push(Math.random() > 0.95 ? Math.random() * 2 : 0);
+                        // 模拟丢包数据：实际应从后端获取
+                        s.packetHistory.shift(); s.packetHistory.push(Math.random() > 0.95 ? Math.random() * 20 : 0);
                     }
                 }
             },
@@ -297,12 +308,10 @@
                 this.initGlobe();
             },
             
-            // 全量渲染/更新
             renderAll() {
                 const nowTs = Date.now()/1000;
                 const servers = Object.values(Store.servers);
                 
-                // 更新总计数据
                 const elOnline = document.getElementById('stat-online');
                 const elTotal = document.getElementById('stat-total');
                 if(elOnline) elOnline.innerText = servers.filter(s=>s.updated_at > (Date.now()/1000 - 60)).length;
@@ -320,13 +329,11 @@
                 const elTraffic = document.getElementById('stat-traffic');
                 const elTime = document.getElementById('system-time');
 
-                // 修复点2：增加判空逻辑，防止崩溃
                 if(elDown) elDown.innerText = totalDown.toFixed(1);
                 if(elUp) elUp.innerText = totalUp.toFixed(1);
                 if(elTraffic) elTraffic.innerText = (traffic / 1000).toFixed(2);
                 if(elTime) elTime.innerText = new Date().toLocaleTimeString(); 
 
-                // 更新列表 (简单刷新)
                 const counts = {
                     all: servers.length,
                     online: servers.filter(s=>s.updated_at > nowTs - 60).length,
@@ -366,7 +373,6 @@
                 this.updateGlobeArcs();
             },
 
-            // 工具函数
             getOsIcon(os) { 
                 const mapping = { 'debian': 'debian', 'ubuntu': 'ubuntu', 'centos': 'centos', 'windows': 'windows11', 'oracle': 'oracle', 'amazonlinux': 'amazonaws', 'alpine': 'alpinelinux', 'freebsd': 'freebsd', 'arch': 'archlinux' };
                 const slug = mapping[os?.toLowerCase()] || 'linux'; 
@@ -389,26 +395,23 @@
                 const osIcon = this.getOsIcon(s.os);
                 const limitText = s.bandwidth_limit === 'unlimited' ? 'Unlimited' : this.formatBytes(Number(s.bandwidth_limit));
                 const isUnl = s.bandwidth_limit === 'unlimited';
+                const isOnline = s.updated_at > (Date.now()/1000 - 60);
 
-                let pingDisplay = '-- ms';
+                let pingDisplay = '--';
                 let pingClass = 'text-slate-400';
-                let pingTargetName = 'TCP';
                 if (s.pingData && s.pingData.length > 0) {
                     const pingArrRaw = (typeof s.pingData === 'string') ? JSON.parse(s.pingData) : s.pingData;
                     const pingArr = Array.isArray(pingArrRaw) ? pingArrRaw : [];
                     if(pingArr.length > 0) {
                         const p = pingArr[0];
                         const pingVal = Number(p.ms);
-                        pingDisplay = (isNaN(pingVal) ? '--' : pingVal) + ' ms';
-                        pingTargetName = p.target;
+                        pingDisplay = (isNaN(pingVal) ? '--' : pingVal);
                         if (!isNaN(pingVal)) {
-                            if (pingVal < 50) pingClass = 'text-green-400';
+                            if (pingVal < 50) pingClass = 'text-emerald-400';
                             else if (pingVal < 150) pingClass = 'text-yellow-400';
                             else pingClass = 'text-red-400';
                         }
                     }
-                } else if (typeof s.pingData === 'undefined' && Store.servers[s.id]?.ping) {
-                     pingDisplay = Store.servers[s.id].ping + ' ms';
                 }
 
                 const cpu = s.cpu || 0;
@@ -421,62 +424,141 @@
                 if (!isUnl) pct = Math.min(100, (trafficUsed / Number(s.bandwidth_limit)) * 100);
                 const barClass = pct > 90 ? 'bg-red-500' : pct > 75 ? 'bg-yellow-500' : 'bg-cyan-500';
 
-                const latBars = Store.servers[s.id]?.latencyHistory.map(v => `<div class="chart-bar flex-1 w-1 rounded-sm ${v<50?'bg-green-500':v<150?'bg-yellow-500':'bg-red-500'}" style="height:${Math.min(100, v/2)}%"></div>`).join('') || '';
-                const lossBars = Store.servers[s.id]?.packetHistory.map(v => `<div class="chart-bar flex-1 w-1 rounded-sm ${v<1?'bg-green-500':'bg-red-500'}" style="height:${Math.min(100, v*10)}%"></div>`).join('') || '';
+                // 修复图表：使用 flex 布局并增加最小高度，防止显示不全
+                const latBars = Store.servers[s.id]?.latencyHistory.map(v => {
+                    const h = Math.min(100, Math.max(5, v/2)); // 最小 5% 高度
+                    const color = v < 50 ? 'bg-emerald-500' : v < 150 ? 'bg-yellow-500' : 'bg-red-500';
+                    return `<div class="chart-bar ${color}" style="height:${h}%"></div>`;
+                }).join('') || '';
+                
+                const lossBars = Store.servers[s.id]?.packetHistory.map(v => {
+                    const isLoss = v > 0;
+                    const h = isLoss ? Math.min(100, Math.max(10, v*10)) : 5; // 无丢包也显示一点点高度作为轨迹
+                    const color = isLoss ? 'bg-red-500' : 'bg-emerald-500/20'; // 无丢包显示淡绿色
+                    return `<div class="chart-bar ${color}" style="height:${h}%"></div>`;
+                }).join('') || '';
 
+                const statusDot = isOnline 
+                    ? `<span class="relative flex h-2.5 w-2.5 mr-1.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span></span>`
+                    : `<span class="flex h-2.5 w-2.5 mr-1.5 rounded-full bg-red-500"></span>`;
+
+                // --- 列表视图 (重构: CPU/RAM/流量等放到第一行) ---
                 if (viewMode === 'list') {
-                    const trafficLine = isUnl ? '不限流量' : `${this.formatBytes(trafficUsed)} / ${limitText} (${Math.round(pct)}%)`;
-
+                    const trafficLine = isUnl ? '无限制' : `${this.formatBytes(trafficUsed)} / ${limitText}`;
+                    
                     return `<div class="glass-panel rounded-xl px-4 py-3 transition-all hover:border-slate-600/50 group relative overflow-hidden" id="card-${s.id}">
                         <div class="absolute -right-6 -bottom-6 opacity-[0.04] pointer-events-none"><img src="${flagUrl}" class="w-32 grayscale"/></div>
-                        <div class="flex flex-col gap-2 relative z-10">
-                            <div class="flex items-center gap-3 flex-wrap">
-                                <div class="w-10 h-7 rounded bg-slate-800 shadow-sm overflow-hidden border border-slate-700/50"><img src="${flagUrl}" class="w-full h-full object-cover"></div>
-                                <div class="flex flex-col gap-1 min-w-[180px]">
-                                    <a href="/server/${s.id}" class="hover:text-blue-400 transition-colors"><h4 class="font-bold text-sm text-white flex items-center gap-2">${s.name}<i class="ti ti-external-link text-xs opacity-50"></i></h4></a>
-                                    <div class="text-xs text-slate-500 flex items-center gap-2"><img src="${osIcon}" class="w-3 h-3" onerror="this.src='https://cdn.simpleicons.org/linux';this.onerror=null;"> <span>${s.loc}</span><span class="w-0.5 h-2 bg-slate-700 rounded-full"></span><span class="${s.updated_at > (Date.now()/1000 - 60) ? 'text-emerald-400' : 'text-red-400'}">${s.updated_at > (Date.now()/1000 - 60) ? '在线' : '离线'}</span></div>
-                                </div>
-                                <div class="flex items-center gap-2 text-xs text-slate-400"><i class="ti ti-clock"></i><span>${s.uptime || 'N/A'}</span></div>
-                                <div class="flex items-center gap-2 text-xs text-slate-400"><i class="ti ti-calendar-event text-blue-400"></i><span>${s.expire_date}</span></div>
-                                <div class="flex items-center gap-2 text-xs text-amber-300"><i class="ti ti-coin"></i><span>${s.price || '--'}</span></div>
-                                <div class="ml-auto text-right">
-                                    <div class="text-[10px] text-slate-400">Ping (${pingTargetName})</div>
-                                    <div class="text-sm font-mono ${pingClass}">${pingDisplay}</div>
+                        <div class="flex items-center gap-4 relative z-10 flex-wrap md:flex-nowrap">
+                            <div class="flex items-center gap-3 min-w-[220px]">
+                                <div class="w-10 h-7 rounded bg-slate-800 shadow-sm overflow-hidden border border-slate-700/50 flex-shrink-0"><img src="${flagUrl}" class="w-full h-full object-cover"></div>
+                                <div>
+                                    <a href="/server/${s.id}" class="hover:text-blue-400 transition-colors"><h4 class="font-bold text-sm text-white flex items-center gap-2">${s.name}</h4></a>
+                                    <div class="flex items-center text-xs text-slate-400 mt-0.5">
+                                        <img src="${osIcon}" class="w-3 h-3 mr-1.5 opacity-80" onerror="this.src='https://cdn.simpleicons.org/linux';this.onerror=null;">
+                                        ${statusDot} <span class="text-slate-500 font-mono">${s.uptime}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="flex flex-wrap items-center gap-3 text-xs text-slate-300">
-                                <div class="flex items-center gap-1"><span class="text-slate-500">CPU</span><span class="font-mono text-white">${Math.round(cpu)}%</span></div>
-                                <div class="flex items-center gap-1"><span class="text-slate-500">RAM</span><span class="font-mono text-white">${Math.round(ram)}%</span></div>
-                                <div class="flex items-center gap-1"><span class="text-slate-500">流量</span><span class="font-mono text-white">${trafficLine}</span></div>
-                                <div class="flex items-center gap-3 text-slate-200 ml-auto"><span class="font-mono text-sm">⬇ ${netIn.toFixed(1)} Mbps</span><span class="font-mono text-sm">⬆ ${netOut.toFixed(1)} Mbps</span></div>
+                            
+                            <div class="flex items-center gap-4 flex-1 justify-start md:justify-end text-xs text-slate-300 flex-wrap">
+                                <div class="flex items-center gap-1.5 min-w-[60px]"><i class="ti ti-cpu text-blue-400"></i><span class="font-mono text-white">${Math.round(cpu)}%</span></div>
+                                <div class="flex items-center gap-1.5 min-w-[60px]"><i class="ti ti-device-memory text-purple-400"></i><span class="font-mono text-white">${Math.round(ram)}%</span></div>
+                                <div class="flex items-center gap-1.5 min-w-[120px]"><i class="ti ti-chart-pie text-amber-400"></i><span class="font-mono text-white">${trafficLine}</span></div>
+                                <div class="flex items-center gap-3 bg-slate-800/40 rounded px-2 py-1 border border-white/5">
+                                    <div class="flex items-center gap-1"><i class="ti ti-arrow-down text-emerald-400"></i><span class="font-mono text-white">${netIn.toFixed(1)}</span></div>
+                                    <div class="w-px h-3 bg-slate-700"></div>
+                                    <div class="flex items-center gap-1"><i class="ti ti-arrow-up text-blue-400"></i><span class="font-mono text-white">${netOut.toFixed(1)}</span></div>
+                                </div>
+                                <div class="flex flex-col items-end min-w-[60px]">
+                                    <div class="flex items-center gap-1 text-slate-500 text-[10px]"><i class="ti ti-antenna"></i> TCP</div>
+                                    <div class="font-mono font-bold ${pingClass}">${pingDisplay}ms</div>
+                                </div>
                             </div>
                         </div>
                     </div>`;
                 }
 
+                // --- 网格视图 (Grid View) ---
                 return `<div class="glass-panel rounded-xl p-5 transition-all hover:border-slate-600/50 group relative overflow-hidden flex flex-col h-full" id="card-${s.id}">
                     <div class="absolute -right-4 -bottom-4 opacity-[0.03] pointer-events-none"><img src="${flagUrl}" class="w-32 grayscale"/></div>
-                    <div class="flex justify-between items-start mb-2 relative z-10">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-7 rounded bg-slate-800 shadow-sm overflow-hidden border border-slate-700/50 relative"><img src="${flagUrl}" class="w-full h-full object-cover"></div>
-                            <div>
-                                <a href="/server/${s.id}" class="hover:text-blue-400 transition-colors">
-                                    <h4 class="font-bold text-sm text-white flex items-center gap-2">${s.name} <i class="ti ti-external-link text-xs opacity-50"></i></h4>
+                    
+                    <div class="flex justify-between items-start mb-3 relative z-10">
+                        <div class="flex items-center gap-3 flex-1 min-w-0">
+                            <div class="w-10 h-7 rounded bg-slate-800 shadow-sm overflow-hidden border border-slate-700/50 relative flex-shrink-0"><img src="${flagUrl}" class="w-full h-full object-cover"></div>
+                            <div class="min-w-0 flex-1">
+                                <a href="/server/${s.id}" class="hover:text-blue-400 transition-colors block">
+                                    <h4 class="font-bold text-sm text-white flex items-center gap-2 truncate">${s.name}</h4>
                                 </a>
-                                <div class="text-xs text-slate-500 flex items-center gap-2 mt-1"><img src="${osIcon}" class="w-3 h-3" onerror="this.src='https://cdn.simpleicons.org/linux';this.onerror=null;"> <span>${s.type}</span><span class="w-0.5 h-2 bg-slate-700 rounded-full"></span><span class="text-green-500">${s.updated_at > (Date.now()/1000 - 60) ? 'Online' : 'Offline'}</span></div>
+                                <div class="flex items-center mt-1">
+                                    ${statusDot}
+                                    <span class="text-xs text-slate-500 font-mono">${s.uptime}</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="text-right"><div class="text-xs text-slate-400 mb-1">Ping (${pingTargetName})</div><div class="text-sm font-mono ${pingClass}">${pingDisplay}</div></div>
+                        <div class="text-right flex-shrink-0 ml-2">
+                            <div class="flex items-center justify-end gap-1 text-[10px] text-slate-500 mb-0.5">
+                                <i class="ti ti-antenna"></i> TCP
+                            </div>
+                            <div class="text-lg font-bold font-mono leading-none ${pingClass}">${pingDisplay}<span class="text-xs font-normal text-slate-500 ml-0.5">ms</span></div>
+                        </div>
                     </div>
+                    
                     ${this.renderTags(s.tags, 'mb-4')}
-                    <div class="space-y-2 mb-4 relative z-10">
-                        <div><div class="flex justify-between text-xs mb-1"><span class="text-slate-500">CPU</span><span class="text-slate-300 font-mono">${Math.round(cpu)}%</span></div><div class="progress-track h-1.5 w-full"><div class="progress-bar bg-blue-500" style="width:${cpu}%"></div></div></div>
-                        <div><div class="flex justify-between text-xs mb-1"><span class="text-slate-500">RAM</span><span class="text-slate-300 font-mono">${Math.round(ram)}%</span></div><div class="progress-track h-1.5 w-full"><div class="progress-bar bg-purple-500" style="width:${ram}%"></div></div></div>
+                    
+                    <div class="space-y-3 mb-4 relative z-10">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-500 flex items-center gap-1"><i class="ti ti-cpu text-blue-400"></i> CPU</span>
+                                <span class="text-slate-300 font-mono">${Math.round(cpu)}%</span>
+                            </div>
+                            <div class="progress-track h-1.5 w-full"><div class="progress-bar bg-blue-500" style="width:${cpu}%"></div></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-500 flex items-center gap-1"><i class="ti ti-device-memory text-purple-400"></i> RAM</span>
+                                <span class="text-slate-300 font-mono">${Math.round(ram)}%</span>
+                            </div>
+                            <div class="progress-track h-1.5 w-full"><div class="progress-bar bg-purple-500" style="width:${ram}%"></div></div>
+                        </div>
                     </div>
-                    <div class="mb-4 relative z-10"><div class="flex justify-between text-xs mb-1"><span class="text-slate-500">Traffic</span><span class="text-slate-300 font-mono text-[10px]">${this.formatBytes(trafficUsed)} / ${limitText}</span></div><div class="progress-track h-2 w-full relative overflow-hidden"><div class="progress-bar ${isUnl ? 'progress-bar-unlimited' : barClass}" style="width:${isUnl ? '100%' : pct+'%'}"></div>${isUnl ? '<div class="absolute inset-0 flex items-center justify-center text-white drop-shadow-md pt-[1px]"><i class="ti ti-infinity text-base font-bold"></i></div>' : ''}</div></div>
-                    <div class="grid grid-cols-2 gap-4 py-2 border-t border-slate-700/50 border-b mb-3 bg-slate-800/20 rounded-lg px-2 relative z-10"><div><div class="text-[10px] uppercase text-slate-500 mb-1">In</div><div class="text-sm font-mono text-white">${netIn.toFixed(1)} Mbps</div></div><div><div class="text-[10px] uppercase text-slate-500 mb-1">Out</div><div class="text-sm font-mono text-white">${netOut.toFixed(1)} Mbps</div></div></div>
-                    <div class="grid grid-cols-2 gap-2 h-8 mb-4 relative z-10"><div class="flex items-end gap-[1px] h-full opacity-80">${latBars}</div><div class="flex items-end gap-[1px] h-full opacity-80">${lossBars}</div></div>
-                    <div class="mt-auto pt-3 border-t border-slate-700/30 relative z-10"><div class="grid grid-cols-2 gap-3 text-xs"><div class="flex items-center justify-center gap-2 text-slate-400 bg-slate-800/50 py-1.5 rounded"><i class="ti ti-calendar-event text-blue-400"></i><span>${s.expire_date}</span></div><div class="flex items-center justify-center gap-2 text-slate-400 bg-slate-800/50 py-1.5 rounded"><i class="ti ti-coin text-yellow-400"></i><span>${s.price}</span></div></div></div>
+                    
+                    <div class="mb-4 relative z-10">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-500 flex items-center gap-1"><i class="ti ti-database text-amber-400"></i> Traffic</span>
+                            <span class="text-slate-300 font-mono text-[10px]">${this.formatBytes(trafficUsed)} / ${limitText}</span>
+                        </div>
+                        <div class="progress-track h-2 w-full relative overflow-hidden">
+                            <div class="progress-bar ${isUnl ? 'progress-bar-unlimited' : barClass}" style="width:${isUnl ? '100%' : pct+'%'}"></div>
+                            ${isUnl ? '<div class="absolute inset-0 flex items-center justify-center text-white drop-shadow-md pt-[1px]"><i class="ti ti-infinity text-base font-bold"></i></div>' : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 py-2 border-t border-slate-700/50 border-b mb-3 bg-slate-800/20 rounded-lg px-2 relative z-10">
+                        <div class="flex flex-col">
+                            <div class="text-[10px] uppercase text-slate-500 mb-1 flex items-center gap-1"><i class="ti ti-arrow-down text-emerald-400"></i> In</div>
+                            <div class="text-sm font-mono text-white">${netIn.toFixed(1)} <span class="text-[10px] text-slate-500">Mbps</span></div>
+                        </div>
+                        <div class="flex flex-col items-end text-right">
+                            <div class="text-[10px] uppercase text-slate-500 mb-1 flex items-center gap-1">Out <i class="ti ti-arrow-up text-blue-400"></i></div>
+                            <div class="text-sm font-mono text-white">${netOut.toFixed(1)} <span class="text-[10px] text-slate-500">Mbps</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2 h-10 mb-1 relative z-10">
+                        <div class="chart-track">${latBars}</div>
+                        <div class="chart-track">${lossBars}</div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] text-slate-500 px-0.5 mb-3">
+                        <div>Latency (24h)</div>
+                        <div class="text-right text-red-400">Packet Loss</div>
+                    </div>
+                    
+                    <div class="mt-auto pt-2 border-t border-slate-700/30 relative z-10">
+                        <div class="grid grid-cols-2 gap-3 text-xs">
+                            <div class="flex items-center justify-center gap-2 text-slate-400 bg-slate-800/50 py-1.5 rounded"><i class="ti ti-calendar-event text-blue-400"></i><span>${s.expire_date}</span></div>
+                            <div class="flex items-center justify-center gap-2 text-slate-400 bg-slate-800/50 py-1.5 rounded"><i class="ti ti-coin text-yellow-400"></i><span>${s.price}</span></div>
+                        </div>
+                    </div>
                 </div>`;
             },
 
@@ -487,15 +569,15 @@
                 this.globe.htmlElementsData(points);
                 
                 const currentArcs = [];
-                const start = { lat: 31.2304, lng: 121.4737 };
+                constqh = { lat: 31.2304, lng: 121.4737 }; // 上海作为汇聚点示例
                 servers.filter(s => s.id !== 'cn-sha').forEach(s => {
                     const intensity = Math.min(1, ((s.net_in||0) + (s.net_out||0)) / 500);
                     const baseId = `base-${s.id}`; const particleId = `part-${s.id}`;
-                    if (!Store.globeArcs[baseId]) { Store.globeArcs[baseId] = { startLat: start.lat, startLng: start.lng, endLat: s.lat, endLng: s.lng, color: 'rgba(255, 255, 255, 0.3)', stroke: 0.4, isParticle: false, dashLength: 0.05, dashGap: 0.05 }; }
+                    if (!Store.globeArcs[baseId]) { Store.globeArcs[baseId] = { startLat:qh.lat, startLng:qh.lng, endLat: s.lat, endLng: s.lng, color: 'rgba(255, 255, 255, 0.1)', stroke: 0.2, isParticle: false, dashLength: 0.05, dashGap: 0.05 }; }
                     currentArcs.push(Store.globeArcs[baseId]);
                     let color = '#60a5fa'; if (intensity > 0.8) color = '#ef4444'; else if (intensity > 0.4) color = '#facc15';
                     let gap; if (intensity < 0.05) gap = 6.0; else if (intensity < 0.2) gap = 3.0 - (intensity * 5); else gap = Math.max(0.05, 1.0 - (intensity * 1.2));
-                    if (!Store.globeArcs[particleId]) { Store.globeArcs[particleId] = { startLat: start.lat, startLng: start.lng, endLat: s.lat, endLng: s.lng, isParticle: true, stroke: 0.9, dashLength: 0.004 }; }
+                    if (!Store.globeArcs[particleId]) { Store.globeArcs[particleId] = { startLat:qh.lat, startLng:qh.lng, endLat: s.lat, endLng: s.lng, isParticle: true, stroke: 0.6, dashLength: 0.005 }; }
                     const p = Store.globeArcs[particleId]; p.color = color; p.animateTime = Math.max(800, 4000 - (intensity * 3000)); p.dashGap = gap;
                     currentArcs.push(p);
                 });
@@ -530,8 +612,8 @@
                             .width(elem.offsetWidth)
                             .height(elem.offsetHeight);
                         this.globe.controls().autoRotate = true;
-                        this.globe.controls().autoRotateSpeed = 0.5;
-                        this.globe.pointOfView({ lat: 20, lng: 100, altitude: 2.5 });
+                        this.globe.controls().autoRotateSpeed = 0.3;
+                        this.globe.pointOfView({ lat: 25, lng: 110, altitude: 2.0 });
                         window.addEventListener('resize', () => { 
                             if(this.globe && elem) {
                                 this.globe.width(elem.offsetWidth); 

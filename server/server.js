@@ -17,8 +17,8 @@ const SECRET_KEY = 'estatus-secret-key-change-me';
 
 // --- 简单内存缓存 ---
 const metaCache = {
-  settings: null,
-  lastLoad: 0
+    settings: null,
+    lastLoad: 0
 };
 
 async function getSetting(key, fallback = '') {
@@ -40,11 +40,11 @@ async function setSetting(key, value) {
 // --- 数据库连接配置 ---
 // [修复] 这里必须是纯对象，不能是 new Pool()
 const dbConfig = {
-  user: 'postgres',       // 你的数据库用户名 (默认 postgres)
-  host: 'dwh.yiandrive.com',      // 数据库地址
-  database: 'estatus',    // 数据库名 (需提前创建)
-  password: 'mysecretpassword',   // 你的数据库密码
-  port: 17948,             // 默认端口
+    user: 'postgres',       // 你的数据库用户名 (默认 postgres)
+    host: 'dwh.yiandrive.com',      // 数据库地址
+    database: 'estatus',    // 数据库名 (需提前创建)
+    password: 'mysecretpassword',   // 你的数据库密码
+    port: 17948,             // 默认端口
 };
 
 // 打印调试信息，帮助定位 IP 来源
@@ -59,31 +59,31 @@ console.log(">> [DB Config] 准备连接数据库:", {
 const pool = new Pool(dbConfig);
 
 pool.on('error', (err) => {
-  console.error('[DB Error] 数据库连接池发生意外错误:', err);
+    console.error('[DB Error] 数据库连接池发生意外错误:', err);
 });
 
 // --- 数据库初始化 ---
 async function initDB() {
-  console.log(">> [Init] 正在初始化表结构...");
-  
-  // 增加连接测试，如果配置错误在这里就会捕获
-  let client;
-  try {
-    client = await pool.connect();
-    console.log(">> [Init] 数据库连接成功！");
-    
-    await client.query('BEGIN');
+    console.log(">> [Init] 正在初始化表结构...");
 
-    await client.query(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);`);
-    await client.query(`CREATE TABLE IF NOT EXISTS servers (id TEXT PRIMARY KEY, name TEXT, type TEXT, loc TEXT, code TEXT, os TEXT, price TEXT, expire_date TEXT, bandwidth_limit TEXT, tags TEXT, buy_link TEXT, display_order INTEGER DEFAULT 0, updated_at INTEGER);`);
-    
-    await client.query(`CREATE TABLE IF NOT EXISTS monitor_logs (server_id TEXT, created_at INTEGER, cpu REAL, ram REAL, disk REAL, net_in REAL, net_out REAL, traffic_used REAL);`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_monitor_server_time ON monitor_logs(server_id, created_at);`);
+    // 增加连接测试，如果配置错误在这里就会捕获
+    let client;
+    try {
+        client = await pool.connect();
+        console.log(">> [Init] 数据库连接成功！");
 
-    await client.query(`CREATE TABLE IF NOT EXISTS ping_logs (server_id TEXT, target_name TEXT, latency INTEGER, created_at INTEGER);`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_ping_server_time ON ping_logs(server_id, created_at);`);
+        await client.query('BEGIN');
 
-    await client.query(`CREATE TABLE IF NOT EXISTS ping_targets (
+        await client.query(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);`);
+        await client.query(`CREATE TABLE IF NOT EXISTS servers (id TEXT PRIMARY KEY, name TEXT, type TEXT, loc TEXT, code TEXT, os TEXT, price TEXT, expire_date TEXT, bandwidth_limit TEXT, tags TEXT, buy_link TEXT, display_order INTEGER DEFAULT 0, updated_at INTEGER);`);
+
+        await client.query(`CREATE TABLE IF NOT EXISTS monitor_logs (server_id TEXT, created_at INTEGER, cpu REAL, ram REAL, disk REAL, net_in REAL, net_out REAL, traffic_used REAL);`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_monitor_server_time ON monitor_logs(server_id, created_at);`);
+
+        await client.query(`CREATE TABLE IF NOT EXISTS ping_logs (server_id TEXT, target_name TEXT, latency INTEGER, created_at INTEGER);`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_ping_server_time ON ping_logs(server_id, created_at);`);
+
+        await client.query(`CREATE TABLE IF NOT EXISTS ping_targets (
         id SERIAL PRIMARY KEY,
         name TEXT,
         host TEXT,
@@ -92,63 +92,63 @@ async function initDB() {
         created_at INTEGER
     );`);
 
-    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS currency TEXT;`);
-    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_unit TEXT;`);
-    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_direction TEXT;`);
-    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_start INTEGER;`);
-    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_end INTEGER;`);
-    await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS billing TEXT;`);
+        await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS currency TEXT;`);
+        await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_unit TEXT;`);
+        await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_direction TEXT;`);
+        await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_start INTEGER;`);
+        await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS traffic_end INTEGER;`);
+        await client.query(`ALTER TABLE servers ADD COLUMN IF NOT EXISTS billing TEXT;`);
 
-    const defaultPwd = await client.query("SELECT value FROM settings WHERE key = 'admin_password'");
-    if (defaultPwd.rowCount === 0) {
-       await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['admin_password', 'admin']);
-    }
-    const defaultUser = await client.query("SELECT value FROM settings WHERE key = 'admin_username'");
-    if (defaultUser.rowCount === 0) {
-       await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['admin_username', 'admin']);
-    }
-    const defaultBg = await client.query("SELECT value FROM settings WHERE key = 'background_image'");
-    if (defaultBg.rowCount === 0) {
-        await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['background_image', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop']);
-    }
-    const defaultSite = await client.query("SELECT value FROM settings WHERE key = 'site_name'");
-    if (defaultSite.rowCount === 0) {
-        await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['site_name', 'estatus']);
-    }
-    const defaultAvatar = await client.query("SELECT value FROM settings WHERE key = 'site_avatar'");
-    if (defaultAvatar.rowCount === 0) {
-        await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['site_avatar', 'https://avatars.githubusercontent.com/u/9919?s=200&v=4']);
-    }
-    const defaultPing = await client.query("SELECT value FROM settings WHERE key = 'ping_targets'");
-    if (defaultPing.rowCount === 0) {
-        const targets = JSON.stringify([
-            { name: "Google", host: "google.com" },
-            { name: "Cloudflare", host: "1.1.1.1" },
-            { name: "China Telecom", host: "chinatelecom.com.cn" }
-        ]);
-        await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['ping_targets', targets]);
-    }
+        const defaultPwd = await client.query("SELECT value FROM settings WHERE key = 'admin_password'");
+        if (defaultPwd.rowCount === 0) {
+            await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['admin_password', 'admin']);
+        }
+        const defaultUser = await client.query("SELECT value FROM settings WHERE key = 'admin_username'");
+        if (defaultUser.rowCount === 0) {
+            await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['admin_username', 'admin']);
+        }
+        const defaultBg = await client.query("SELECT value FROM settings WHERE key = 'background_image'");
+        if (defaultBg.rowCount === 0) {
+            await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['background_image', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop']);
+        }
+        const defaultSite = await client.query("SELECT value FROM settings WHERE key = 'site_name'");
+        if (defaultSite.rowCount === 0) {
+            await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['site_name', 'estatus']);
+        }
+        const defaultAvatar = await client.query("SELECT value FROM settings WHERE key = 'site_avatar'");
+        if (defaultAvatar.rowCount === 0) {
+            await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['site_avatar', 'https://avatars.githubusercontent.com/u/9919?s=200&v=4']);
+        }
+        const defaultPing = await client.query("SELECT value FROM settings WHERE key = 'ping_targets'");
+        if (defaultPing.rowCount === 0) {
+            const targets = JSON.stringify([
+                { name: "Google", host: "google.com" },
+                { name: "Cloudflare", host: "1.1.1.1" },
+                { name: "China Telecom", host: "chinatelecom.com.cn" }
+            ]);
+            await client.query("INSERT INTO settings (key, value) VALUES ($1, $2)", ['ping_targets', targets]);
+        }
 
-    const pingTableCount = await client.query('SELECT COUNT(*) FROM ping_targets');
-    if (Number(pingTableCount.rows[0].count) === 0) {
-        await client.query(`INSERT INTO ping_targets (name, host, region, is_default, created_at) VALUES
+        const pingTableCount = await client.query('SELECT COUNT(*) FROM ping_targets');
+        if (Number(pingTableCount.rows[0].count) === 0) {
+            await client.query(`INSERT INTO ping_targets (name, host, region, is_default, created_at) VALUES
             ('Google', 'google.com', 'Global', true, $1),
             ('Cloudflare', '1.1.1.1', 'Global', false, $1),
             ('China Telecom', 'chinatelecom.com.cn', 'CN', false, $1)
-        `, [Math.floor(Date.now()/1000)]);
-    }
+        `, [Math.floor(Date.now() / 1000)]);
+        }
 
-    await client.query('COMMIT');
-    console.log(">> [Init] 数据库表结构检查完成");
-  } catch (e) {
-    if (client) await client.query('ROLLBACK');
-    console.error(">> [Init Error] 数据库初始化失败:", e.message);
-    console.error(">> 请检查你的数据库连接配置是否正确 (server.js 第20行)");
-    console.error(">> 错误详情:", e);
-    process.exit(1); 
-  } finally {
-    if (client) client.release();
-  }
+        await client.query('COMMIT');
+        console.log(">> [Init] 数据库表结构检查完成");
+    } catch (e) {
+        if (client) await client.query('ROLLBACK');
+        console.error(">> [Init Error] 数据库初始化失败:", e.message);
+        console.error(">> 请检查你的数据库连接配置是否正确 (server.js 第20行)");
+        console.error(">> 错误详情:", e);
+        process.exit(1);
+    } finally {
+        if (client) client.release();
+    }
 }
 
 // --- Express 中间件 ---
@@ -171,9 +171,9 @@ function authMiddleware(req, res, next) {
 app.post('/api/report', async (req, res) => {
     const d = req.body;
     if (!d.id) return res.status(400).send({ error: 'Missing ID' });
-    
+
     const now = Math.floor(Date.now() / 1000);
-    
+
     // [优化] 获取连接 client，如果池已满或错误这里会抛出
     let client;
     try {
@@ -205,9 +205,9 @@ app.post('/api/report', async (req, res) => {
         `, [d.id, now, d.cpu, d.ram, d.disk, netIn, netOut, trafficUsed]);
 
         if (d.pingData && Array.isArray(d.pingData)) {
-            const pingPromises = d.pingData.map(p => 
-                client.query(`INSERT INTO ping_logs (server_id, target_name, latency, created_at) VALUES ($1, $2, $3, $4)`, 
-                [d.id, p.target, p.ms, now])
+            const pingPromises = d.pingData.map(p =>
+                client.query(`INSERT INTO ping_logs (server_id, target_name, latency, created_at) VALUES ($1, $2, $3, $4)`,
+                    [d.id, p.target, p.ms, now])
             );
             await Promise.all(pingPromises);
         }
@@ -271,7 +271,7 @@ app.post('/api/admin/ping-targets', authMiddleware, async (req, res) => {
                 [name, host, region || '', !!is_default, id]);
         } else {
             const inserted = await pool.query(`INSERT INTO ping_targets (name, host, region, is_default, created_at) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-                [name, host, region || '', !!is_default, Math.floor(Date.now()/1000)]);
+                [name, host, region || '', !!is_default, Math.floor(Date.now() / 1000)]);
             targetId = inserted.rows[0].id;
         }
         if (is_default && targetId) {
@@ -292,12 +292,13 @@ app.delete('/api/admin/ping-targets/:id', authMiddleware, async (req, res) => {
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const [[pwd], [user]] = await Promise.all([
+        const [pwdResult, userResult] = await Promise.all([
             pool.query("SELECT value FROM settings WHERE key = 'admin_password'"),
             pool.query("SELECT value FROM settings WHERE key = 'admin_username'")
         ]);
-        const storedPwd = pwd.rows[0]?.value || 'admin';
-        const storedUser = user.rows[0]?.value || 'admin';
+
+        const storedPwd = pwdResult.rows[0]?.value || 'admin';
+        const storedUser = userResult.rows[0]?.value || 'admin';
 
         // 测试阶段允许默认账户直通
         const isDefaultLogin = username === 'admin' && password === 'admin';
@@ -351,16 +352,16 @@ app.post('/api/admin/servers/:id', authMiddleware, async (req, res) => {
     const id = req.params.id;
     const payload = req.body || {};
     try {
-        const fields = ['name','type','loc','code','os','price','expire_date','bandwidth_limit','currency','traffic_unit','traffic_direction','traffic_start','traffic_end','billing','display_order'];
+        const fields = ['name', 'type', 'loc', 'code', 'os', 'price', 'expire_date', 'bandwidth_limit', 'currency', 'traffic_unit', 'traffic_direction', 'traffic_start', 'traffic_end', 'billing', 'display_order'];
         const sets = [];
         const values = [];
         fields.forEach((f, idx) => {
-            if (typeof payload[f] !== 'undefined') { sets.push(`${f}=$${sets.length+1}`); values.push(payload[f]); }
+            if (typeof payload[f] !== 'undefined') { sets.push(`${f}=$${sets.length + 1}`); values.push(payload[f]); }
         });
-        if (payload.tags) { sets.push(`${'tags'}=$${sets.length+1}`); values.push(JSON.stringify(payload.tags)); }
+        if (payload.tags) { sets.push(`${'tags'}=$${sets.length + 1}`); values.push(JSON.stringify(payload.tags)); }
         if (sets.length === 0) return res.json({ success: true });
         values.push(id);
-        const sql = `UPDATE servers SET ${sets.join(', ')} WHERE id=$${sets.length+1}`;
+        const sql = `UPDATE servers SET ${sets.join(', ')} WHERE id=$${sets.length + 1}`;
         await pool.query(sql, values);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -389,12 +390,12 @@ wss.on('connection', async (ws) => {
                 WHERE server_id = $1 
                 AND created_at = (SELECT MAX(created_at) FROM ping_logs WHERE server_id = $1)
             `, [s.id]);
-            
-            liveData[s.id] = { 
-                ...s, 
-                ...(latestRes.rows[0] || {}), 
+
+            liveData[s.id] = {
+                ...s,
+                ...(latestRes.rows[0] || {}),
                 pingData: pingRes.rows,
-                tags: JSON.parse(s.tags || '[]') 
+                tags: JSON.parse(s.tags || '[]')
             };
         }
         ws.send(JSON.stringify({ type: 'full_sync', data: liveData, config }));
@@ -414,14 +415,14 @@ async function broadcastLive(serverId) {
             WHERE server_id = $1 
             AND created_at = (SELECT MAX(created_at) FROM ping_logs WHERE server_id = $1)
         `, [serverId]);
-        
-        const data = { 
-            ...sRes.rows[0], 
-            ...(latestRes.rows[0] || {}), 
+
+        const data = {
+            ...sRes.rows[0],
+            ...(latestRes.rows[0] || {}),
             pingData: pingRes.rows,
-            tags: JSON.parse(sRes.rows[0].tags || '[]') 
+            tags: JSON.parse(sRes.rows[0].tags || '[]')
         };
-        
+
         const payload = JSON.stringify({ type: 'update_single', id: serverId, data });
         wss.clients.forEach(c => { if (c.readyState === WebSocket.OPEN) c.send(payload); });
     } catch (e) { console.error("[WS Broadcast Error]", e); }
