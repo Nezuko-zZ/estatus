@@ -41,10 +41,10 @@ async function setSetting(key, value) {
 // [修复] 这里必须是纯对象，不能是 new Pool()
 const dbConfig = {
     user: 'postgres',       // 你的数据库用户名 (默认 postgres)
-    host: 'dwh.yiandrive.com',      // 数据库地址
-    database: 'estatus',    // 数据库名 (需提前创建)
-    password: 'mysecretpassword',   // 你的数据库密码
-    port: 17948,             // 默认端口
+    host: '',      // 数据库地址
+    database: '',    // 数据库名 (需提前创建)
+    password: '',   // 你的数据库密码
+    port: ,             // 默认端口
 };
 
 // 打印调试信息，帮助定位 IP 来源
